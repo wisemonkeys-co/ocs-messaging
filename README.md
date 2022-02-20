@@ -36,13 +36,34 @@ Recomenda-se o uso da ferramenta `telnet` para monitorar ou interagir com a apli
 - Conectar no servidor do NATS
 ```
 $ telnet localhost 4222
+# localhost - ip do servidor nats
+# 4222 - porta para clientes
 ```
 - Se inscrever em um canal chamado `foo`
 ```
 $ sub foo 1
+# sub - comando para se inscrever em um subject
+# foo - nome do subject
+# 1 - identificador da inscrição
 ```
 - Publicar uma mensagem em um canal chamado `foo` com 11 caracteres
 ```
 $ pub foo 11
+# pub - comando para enviar uma mensagem em um subject
+# foo - nome do subject
+# 11 - número de caracteres da mensagem
 $ Hello World
+# Hello World - mensagem
 ```
+
+## Detalhes do protocolo usado pela Nats
+A Nats utiliza um protocolo de texto com dez comandos no total. Cada linha do protocolo é delimitada pelos caracteres `\r\n`. São eles:
+- INFO (servidor): envio de metadados para os clientes.
+- CONNECT (cliente): envio de credenciais e metadados para o servidor.
+- PUB (cliente): envia uma mensagem para um subject.
+- SUB (cliente): se inscreve em um subject.
+- UNSUB (cliente): se desinscreve de um subject.
+- MSG (servidor): envia uma mensagem para um cliente.
+- +OK (servidor): ack informando que o comando foi processado.
+- PING, PONG (cliente e servidor): comando para verificar conectividade.
+- -ERR (servidor): informa erros.
