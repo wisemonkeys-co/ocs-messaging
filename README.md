@@ -39,6 +39,7 @@ $ telnet localhost 4222
 # localhost - ip do servidor NATS
 # 4222 - porta para clientes
 ```
+
 - Se inscrever em um subject chamado `foo`
 ```
 sub foo 1
@@ -46,6 +47,7 @@ sub foo 1
 # foo - nome do subject
 # 1 - identificador da inscrição (sid)
 ```
+
 - Publicar uma mensagem em um subject chamado `foo` com 11 caracteres
 ```
 pub foo 11
@@ -82,7 +84,7 @@ São mensagens trocadas, não entre publishers e subscribers, mas entre cliente 
 Um cliente também pode enviar um `PING`, para o servidor, que deverá ser respondido com um `PONG`. Essa abordagem é especialmente útil em casos de envio para o servidor de uma série de comandos (linhas) de uma vez. Como os comandos, do cliente, são processados em ordem, pelo servidor, caso seja enviado um `PING` como última instrução, o `PONG` devolvido pelo servidor indicará o fim do processamento das linhas recebidas.   
 Exemplo:
 ```
-# Cliente 1 publicando duas mensagens e um ping
+# Cliente 1 publicando duas mensagens e um ping.
 pub foo 3
 bar
 pub foz 3
@@ -98,65 +100,135 @@ Exemplo 1 - envio de mensagem:
 pub foo 11
 Hello World
 ```
+
 Exemplo 2 - envio de requisição:
 ```
-# Client 1 se inscreve no subject reply 
+# Client 1 se inscreve no subject reply.
 sub reply my-sub-id
 
-# Client 2 se inscreve no subject request
+# Client 2 se inscreve no subject request.
 sub request my-request-id
 
 # Client 1 envia uma mensagem informando o subject de resposta
-pub request reply 13
+pub request reply 13.
 anybody home?
 
-# Client 2 recebe a mensagem e o subject onde a resposta deve ser publicada
+# Client 2 recebe a mensagem e o subject onde a resposta deve ser publicada.
 MSG request my-request-id reply 13
 anybody home?
 ```
+
 OBS: O envio de requisições informa um subject de resposta que está sendo escutado pelo publisher. Os clients que recebem a requisição não são obrigados a respondê-la.
 
 ### SUB
 Comando usado, pelo cliente, para receber mensagens enviadas para um subject. Obrigatoriamente, esse comando deve conter: o nome do subject e o identificador da inscrição no subject (sid).   
 Exemplo:
 ```
-# Cliente 1 se inscreve no subject "foo" com o sid "first-foo"
+# Cliente 1 se inscreve no subject "foo" com o sid "first-foo".
 sub foo first-sub
 
-# Cliente 2 se inscreve no subject "foo.bar" com o sid "1"
+# Cliente 2 se inscreve no subject "foo.bar" com o sid "1".
 sub foo.bar 1
 
-# Cliente 3 se inscreve em qualquer subject que comece com "foo." com o sid "all-foo"
+# Cliente 3 se inscreve em qualquer subject que comece com "foo." com o sid "all-foo".
 sub foo.> all-foo
 
-# Cliente 4 se inscreve em qualquer subject que termine com ".bar" com o sid "all-dot-bar"
+# Cliente 4 se inscreve em qualquer subject que termine com ".bar" com o sid "all-dot-bar".
 sub *.bar all-dot-bar
 ```
+
 #### Queue Subscripions
 Opcionalmente um cliente pode se inscrever em um subject como membro de um grupo. Neste cenário, o servidor do NATS, sempre, a cada mensagem vai eleger um dos membros do grupo para recebê-la.   
 Exemplo:
 ```
-# Cliente 1 se inscreve no subject "foo" usando o grupo "worker" e o sid "first-queue-consumer"
+# Cliente 1 se inscreve no subject "foo" usando o grupo "worker" e o sid "first-queue-consumer".
 sub foo worker first-queue-consumer
 
-# Cliente 2 se inscreve no subject "foo" usando o grupo "worker" e o sid "second-queue-consumer"
+# Cliente 2 se inscreve no subject "foo" usando o grupo "worker" e o sid "second-queue-consumer".
 sub foo worker second-queue-consumer
 
-# Cliente 3 publica duas mensagens no subject "foo"
+# Cliente 3 publica duas mensagens no subject "foo".
 pub foo 3
 abc
 pub foo 3
 def
 ping
 
-# Resposta do servidor para o Client 3
+# Resposta do servidor para o Client 3.
 PONG
 
-# Cliente 2
+# Cliente 2 recebe uma das mensagens.
 MSG foo second-queue-consumer 3
 abc
 
-# Cliente 1
+# Cliente 1 recebe a outra.
 MSG foo first-queue-consumer 3
 def
+```
+
+### UNSUB
+Após se inscrever em um subject, um client pode informar que não tem mais "interesse" neste subject. Obrigatoriamente, deve-se informar o sid, passado no comando `sub` e associado ao subject que o client não desejam mais escutar.
+Exemplo:
+```
+sub foo sid1
+unsub sid1
+```
+
+Opcionalmente, é possível informar o número de mensagens que deseja-se receber antes de para de "escutar" o subject em questão.   
+Exemplo:
+```
+# Cliente 1 se inscreve no subject "foo" com o sid "sub-id".
+sub foo sub-id
+
+# Cliente 1 informa que tem interesse em apenas mais uma mensagem do subject associado ao sid "sub-id".
+unsub sub-id 1
+
+# Cliente 2 publica duas mensagens no subject "foo".
+pub foo 3
+abc
+pub foo 3
+def
+ping
+
+# Cliente 1 recebe apenas a primeira mensagem do subject "foo" após a execução do unsub.
+MSG foo sub-id 3
+abc
+```
+
+É possível usar o comando `unsub` para capturar a primeira resposta de uma requisição.   
+Exemplo:
+```
+# Client 1 se inscreve no subject "reply" apenas para obter a primeira mensagem.
+sub reply 1
+unsub 1 1
+
+# Client 2 se inscreve no subject "request".
+sub request my-request-id-2
+
+# Client 3 se inscreve no subject "request".
+sub request my-request-id-3
+
+# Client 1 envia a requisição no subject "request" e envia o subject de resposta, chamado de "reply".
+pub request reply 4
+help
+
+# Client 2 recebe a mensagem do subject "request"
+MSG request my-request-id-2 reply 4
+help
+
+# Client 3 recebe a mensagem do subject "request"
+MSG request my-request-id-3 reply 4
+help
+
+# Client 2 responde no subject "reply".
+pub reply 10
+I can help
+
+# Client 1 recebe a primeira resposta no subject "reply"
+MSG reply 1 10
+I can help
+
+# Client 3 responde no subject "reply", porém o Client 1 não receberá mais nada.
+pub reply 10
+I can help
 ```
