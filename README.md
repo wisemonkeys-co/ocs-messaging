@@ -77,6 +77,20 @@ Exemplo para desligar o ack enviado pelo servidor e o detalhamento de erros:
 connect {"verbose": false, "pedant": false}
 ```
 
+### PING, PONG
+São mensagens trocadas, não entre publishers e subscribers, mas entre cliente e servidor do NATS. Em intervalos regulares (default dois minutos) o servidor do NATS envia um `PING` para um cliente. Essa mensagem deve ser respondida com um `PONG`. Caso o cliente fique sem responder, o servidor do NATS encerra a conexão.   
+Um cliente também pode enviar um `PING`, para o servidor, que deverá ser respondido com um `PONG`. Essa abordagem é especialmente útil em casos de envio para o servidor de uma série de comandos (linhas) de uma vez. Como os comandos, do cliente, são processados em ordem, pelo servidor, caso seja enviado um `PING` como última instrução, o `PONG` devolvido pelo servidor indicará o fim do processamento das linhas recebidas.   
+Exemplo:
+```
+# Cliente 1 publicando duas mensagens e um ping
+pub foo 3
+bar
+pub foz 3
+baz
+ping
+PONG
+```
+
 ### PUB
 Usado para publicar uma mensagem. Obrigatoriamente deve ser informado o nome do subject no qual a mensagem será publicada e o número de caracteres da mensagem. Opcionalmente, pode ser informado um subject de resposta para a mensagem. A linha seguinte a execução do `pub` deve conter a mensagem que será enviada, respeitando o número de caracteres informado.   
 Exemplo 1 - envio de mensagem:
@@ -100,4 +114,4 @@ anybody home?
 MSG request my-request-id reply 13
 anybody home?
 ```
-OBS: O envio de requisições informa um subject de resposta que está sendo escutado. Os clients que recebem a requisição não são obrigados a respondê-la.
+OBS: O envio de requisições informa um subject de resposta que está sendo escutado pelo publisher. Os clients que recebem a requisição não são obrigados a respondê-la.
