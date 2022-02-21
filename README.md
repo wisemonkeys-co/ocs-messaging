@@ -92,7 +92,7 @@ PONG
 ```
 
 ### PUB
-Usado para publicar uma mensagem. Obrigatoriamente deve ser informado o nome do subject no qual a mensagem será publicada e o número de caracteres da mensagem. Opcionalmente, pode ser informado um subject de resposta para a mensagem. A linha seguinte a execução do `pub` deve conter a mensagem que será enviada, respeitando o número de caracteres informado.   
+Usado para publicar uma mensagem. Obrigatoriamente deve ser informado: o nome do subject no qual a mensagem será publicada e o número de caracteres da mensagem. Opcionalmente, pode ser informado um subject de resposta para a mensagem. A linha seguinte a execução do `pub` deve conter a mensagem que será enviada, respeitando o número de caracteres informado.   
 Exemplo 1 - envio de mensagem:
 ```
 pub foo 11
@@ -115,3 +115,48 @@ MSG request my-request-id reply 13
 anybody home?
 ```
 OBS: O envio de requisições informa um subject de resposta que está sendo escutado pelo publisher. Os clients que recebem a requisição não são obrigados a respondê-la.
+
+### SUB
+Comando usado, pelo cliente, para receber mensagens enviadas para um subject. Obrigatoriamente, esse comando deve conter: o nome do subject e o identificador da inscrição no subject (sid).   
+Exemplo:
+```
+# Cliente 1 se inscreve no subject "foo" com o sid "first-foo"
+sub foo first-sub
+
+# Cliente 2 se inscreve no subject "foo.bar" com o sid "1"
+sub foo.bar 1
+
+# Cliente 3 se inscreve em qualquer subject que comece com "foo." com o sid "all-foo"
+sub foo.> all-foo
+
+# Cliente 4 se inscreve em qualquer subject que termine com ".bar" com o sid "all-dot-bar"
+sub *.bar all-dot-bar
+```
+#### Queue Subscripions
+Opcionalmente um cliente pode se inscrever em um subject como membro de um grupo. Neste cenário, o servidor do NATS, sempre, a cada mensagem vai eleger um dos membros do grupo para recebê-la.   
+Exemplo:
+```
+# Cliente 1 se inscreve no subject "foo" usando o grupo "worker" e o sid "first-queue-consumer"
+sub foo worker first-queue-consumer
+
+# Cliente 2 se inscreve no subject "foo" usando o grupo "worker" e o sid "second-queue-consumer"
+sub foo worker second-queue-consumer
+
+# Cliente 3 publica duas mensagens no subject "foo"
+pub foo 3
+abc
+pub foo 3
+def
+ping
+
+# Resposta do servidor para o Client 3
+PONG
+
+# Cliente 2
+MSG foo second-queue-consumer 3
+abc
+
+# Cliente 1
+MSG foo first-queue-consumer 3
+def
+```
