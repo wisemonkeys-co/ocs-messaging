@@ -152,10 +152,6 @@ pub foo 3
 abc
 pub foo 3
 def
-ping
-
-# Resposta do servidor para o Client 3.
-PONG
 
 # Cliente 2 recebe uma das mensagens.
 MSG foo second-queue-consumer 3
@@ -188,7 +184,6 @@ pub foo 3
 abc
 pub foo 3
 def
-ping
 
 # Cliente 1 recebe apenas a primeira mensagem do subject "foo" após a execução do unsub.
 MSG foo sub-id 3
