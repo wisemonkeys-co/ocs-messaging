@@ -37,11 +37,29 @@ func (kp *KafkaProducer) StopSender() {
 
 // PostMessage enqueue the message to be sent to kafka
 func (kp *KafkaProducer) PostMessage(message []byte) error {
+	var err error
 	if kp.p == nil {
 		return errors.New("The producer was not defined")
 	}
-	kp.messageChan <- message
-	return nil
+	// kp.messageChan <- message
+	kafkaMessage := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &kp.topicName,
+			Partition: kafka.PartitionAny,
+		},
+		Value: message,
+	}
+	kp.p.Produce(kafkaMessage, nil)
+	producerEvent := <-kp.p.Events()
+	switch ev := producerEvent.(type) {
+	case *kafka.Message:
+		if ev.TopicPartition.Error != nil {
+			err = errors.New(fmt.Sprintf("Error on send message %s to %v\n", string(ev.Value), ev.TopicPartition))
+		}
+	default:
+		err = nil
+	}
+	return err
 }
 
 // ConfigSender config the producer
@@ -61,29 +79,31 @@ func (kp *KafkaProducer) ConfigSender(opt map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	kp.messageChan = make(chan []byte)
-	go func() {
-		for {
-			message, ok := <-kp.messageChan
-			if !ok {
-				break
+	/*
+		kp.messageChan = make(chan []byte)
+		go func() {
+			for {
+				message, ok := <-kp.messageChan
+				if !ok {
+					break
+				}
+				kp.asyncSendMessage(message, nil)
 			}
-			kp.asyncSendMessage(message, nil)
-		}
-	}()
+		}()
 
-	go func() {
-		for e := range kp.p.Events() {
-			switch ev := e.(type) {
-			case *kafka.Message:
-				if ev.TopicPartition.Error != nil {
-					fmt.Printf("Error on send message %s to %v\n", string(ev.Value), ev.TopicPartition)
-				} else {
-					fmt.Printf("Delivered message: %s\n", string(ev.Value))
+		go func() {
+			for e := range kp.p.Events() {
+				switch ev := e.(type) {
+				case *kafka.Message:
+					if ev.TopicPartition.Error != nil {
+						fmt.Printf("Error on send message %s to %v\n", string(ev.Value), ev.TopicPartition)
+					} else {
+						fmt.Printf("Delivered message: %s\n", string(ev.Value))
+					}
 				}
 			}
-		}
-	}()
+		}()
+	*/
 
 	topicName := os.Getenv("TOPIC_NAME")
 	if topicName == "" {
