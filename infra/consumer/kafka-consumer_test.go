@@ -66,7 +66,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("TestMain")
 	topicName = "ocs-messaging-consumer-test"
 	os.Setenv("BROKER_LIST", "localhost:9092")
-	os.Setenv("TOPIC_NAME", topicName)
+	os.Setenv("MESSAGE_TOPIC_NAME", topicName)
 	os.Setenv("GROUP", "test_group")
 	var err error
 	createTopic(os.Getenv("BROKER_LIST"), os.Getenv("TOPIC_NAME"))

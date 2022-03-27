@@ -27,7 +27,7 @@ func (kc *KafkaConsumer) StartConsumer() error {
 	if group == "" {
 		group = "main"
 	}
-	topicName := os.Getenv("TOPIC_NAME")
+	topicName := os.Getenv("MESSAGE_TOPIC_NAME")
 	if topicName == "" {
 		topicName = "events"
 	}

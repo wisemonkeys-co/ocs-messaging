@@ -80,7 +80,7 @@ func TestKafkaProducer(t *testing.T) {
 func TestMain(m *testing.M) {
 	testTopicName = "ocs-messaging-producer-test"
 	kafkaBrokerList = "localhost:9092"
-	os.Setenv("TOPIC_NAME", testTopicName)
+	os.Setenv("RESPONSE_TOPIC_NAME", testTopicName)
 	options = make(map[string]interface{})
 	options["bootstrap.servers"] = kafkaBrokerList
 	createTopic(kafkaBrokerList, testTopicName)

@@ -105,7 +105,7 @@ func (kp *KafkaProducer) ConfigSender(opt map[string]interface{}) error {
 		}()
 	*/
 
-	topicName := os.Getenv("TOPIC_NAME")
+	topicName := os.Getenv("RESPONSE_TOPIC_NAME")
 	if topicName == "" {
 		topicName = "events"
 	}
