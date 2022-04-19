@@ -24,6 +24,10 @@ func main() {
 
 	kafkaSenderConfig := make(map[string]interface{})
 	kafkaSenderConfig["bootstrap.servers"] = os.Getenv("BROKER_LIST")
+	kafkaSenderConfig["sasl.username"] = "admin"
+	kafkaSenderConfig["sasl.password"] = "admin-secret"
+	kafkaSenderConfig["sasl.mechanism"] = "PLAIN"
+	kafkaSenderConfig["security.protocol"] = "SASL_PLAINTEXT"
 
 	msgChan := make(chan []byte)
 

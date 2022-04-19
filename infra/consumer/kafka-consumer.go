@@ -36,6 +36,10 @@ func (kc *KafkaConsumer) StartConsumer() error {
 		"bootstrap.servers": kafkaBrokerList,
 		"group.id":          group,
 		"auto.offset.reset": "earliest",
+		"security.protocol": "SASL_PLAINTEXT",
+		"sasl.username":     "admin",
+		"sasl.password":     "admin-secret",
+		"sasl.mechanism":    "PLAIN",
 	})
 	if newConsumerError != nil {
 		return newConsumerError
