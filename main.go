@@ -27,7 +27,8 @@ func main() {
 	kafkaSenderConfig["sasl.username"] = "admin"
 	kafkaSenderConfig["sasl.password"] = "admin-secret"
 	kafkaSenderConfig["sasl.mechanism"] = "PLAIN"
-	kafkaSenderConfig["security.protocol"] = "SASL_PLAINTEXT"
+	kafkaSenderConfig["security.protocol"] = "SASL_SSL"
+	kafkaSenderConfig["enable.ssl.certificate.verification"] = false // usado para testes locais
 
 	msgChan := make(chan []byte)
 

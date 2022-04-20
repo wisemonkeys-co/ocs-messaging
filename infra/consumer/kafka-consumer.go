@@ -33,13 +33,14 @@ func (kc *KafkaConsumer) StartConsumer() error {
 	}
 	var newConsumerError error
 	kc.consumer, newConsumerError = kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": kafkaBrokerList,
-		"group.id":          group,
-		"auto.offset.reset": "earliest",
-		"security.protocol": "SASL_PLAINTEXT",
-		"sasl.username":     "admin",
-		"sasl.password":     "admin-secret",
-		"sasl.mechanism":    "PLAIN",
+		"bootstrap.servers":                   kafkaBrokerList,
+		"group.id":                            group,
+		"auto.offset.reset":                   "earliest",
+		"security.protocol":                   "SASL_SSL",
+		"sasl.username":                       "admin",
+		"sasl.password":                       "admin-secret",
+		"sasl.mechanism":                      "PLAIN",
+		"enable.ssl.certificate.verification": false, // usado para testes locais
 	})
 	if newConsumerError != nil {
 		return newConsumerError
