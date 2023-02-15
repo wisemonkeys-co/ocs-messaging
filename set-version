@@ -1,0 +1,25 @@
+#!/bin/bash
+old=$1
+new=$2
+#action1=.github/workflows/ci-dev.yml
+#action2=.github/workflows/rc-hmg.yml
+release=README.md
+
+if [ -z "$new" ]
+  then
+     echo "missing parameters"
+     exit 0
+fi
+if [ -z "$old" ]
+  then
+     echo "missing parameters"
+     exit 0
+fi
+
+#sed 's/'$old'/'$new'/' $action1 > tmp1.$$
+#mv tmp1.$$ $action1
+#sed 's/'$old'/'$new'/' $action2 > tmp1.$$
+#mv tmp1.$$ $action2
+sed 's/release-'$old'/release-'$new'/g' $release > tmp1.$$
+mv tmp1.$$ $release
+
