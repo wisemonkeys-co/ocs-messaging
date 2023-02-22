@@ -20,35 +20,6 @@ func (jsv *JsonSchemaValidator) init() {
 	jsv.customSchemas = make(map[int]*jsonschema.Schema)
 }
 
-func (jsv *JsonSchemaValidator) getSchemaRootPropertiesMap(schema *srclient.Schema) (originalJsonSchema map[string]interface{}, err error) {
-	schemaStr := schema.Schema()
-	err = json.Unmarshal([]byte(schemaStr), &originalJsonSchema)
-	if err != nil {
-		err = errors.New(fmt.Sprintf("Error unmarshal json-schema for id %d %s", schema.ID(), err.Error()))
-	}
-	return
-}
-
-func (jsv *JsonSchemaValidator) validate(data []byte, schema *srclient.Schema) error {
-	schemaRootProperitesMap, err := jsv.getSchemaRootPropertiesMap(schema)
-	if err != nil {
-		return err
-	}
-	if schemaRootProperitesMap["type"] == "string" || schemaRootProperitesMap["type"] == "number" {
-		return jsv.validatePrimitiveData(data, schemaRootProperitesMap, schema.ID())
-	}
-	schemaStr := schema.Schema()
-	var originalJsonSchema map[string]interface{}
-	jsonError := json.Unmarshal([]byte(schemaStr), &originalJsonSchema)
-	if jsonError != nil {
-		return errors.New(fmt.Sprintf("Error unmarshal json-schema for id '%d' %s", schema.ID(), jsonError))
-	}
-	if originalJsonSchema["type"] == "string" || originalJsonSchema["type"] == "number" {
-		return jsv.validatePrimitiveData(data, originalJsonSchema, schema.ID())
-	}
-	return jsv.validateJsonDocData(data, schema.JsonSchema(), schema.ID())
-}
-
 func (jsv *JsonSchemaValidator) decode(data []byte, schema *srclient.Schema, v any) (err error) {
 	err = jsv.validate(data, schema)
 	if err != nil {
@@ -115,6 +86,26 @@ func (jsv *JsonSchemaValidator) encode(data any, schema *srclient.Schema) (paylo
 	return
 }
 
+func (jsv *JsonSchemaValidator) validate(data []byte, schema *srclient.Schema) error {
+	schemaRootProperitesMap, err := jsv.getSchemaRootPropertiesMap(schema)
+	if err != nil {
+		return err
+	}
+	if schemaRootProperitesMap["type"] == "string" || schemaRootProperitesMap["type"] == "number" {
+		return jsv.validatePrimitiveData(data, schemaRootProperitesMap, schema.ID())
+	}
+	return jsv.validateJsonDocData(data, schema.JsonSchema(), schema.ID())
+}
+
+func (jsv *JsonSchemaValidator) getSchemaRootPropertiesMap(schema *srclient.Schema) (originalJsonSchema map[string]interface{}, err error) {
+	schemaStr := schema.Schema()
+	err = json.Unmarshal([]byte(schemaStr), &originalJsonSchema)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error unmarshal json-schema for id %d %s", schema.ID(), err.Error()))
+	}
+	return
+}
+
 func (jsv *JsonSchemaValidator) validatePrimitiveData(data []byte, originalJsonSchema map[string]interface{}, schemaId int) error {
 	var jsonSchemaContainer *jsonschema.Schema
 	if jsv.customSchemas[schemaId] == nil {
@@ -132,7 +123,7 @@ func (jsv *JsonSchemaValidator) validatePrimitiveData(data []byte, originalJsonS
 		var compileSchemaContainerError error
 		jsonSchemaContainer, compileSchemaContainerError = jsonschema.CompileString("schema.json", string(fakeJsonSchemaString))
 		if compileSchemaContainerError != nil {
-			return errors.New(fmt.Sprintf("Error compile new schema for primitive type for id '%d' %s", schemaId, compileSchemaContainerError))
+			return errors.New(fmt.Sprintf("Error compile new schema for primitive type id '%d': %s", schemaId, compileSchemaContainerError))
 		}
 		jsv.customSchemas[schemaId] = jsonSchemaContainer
 	} else {
