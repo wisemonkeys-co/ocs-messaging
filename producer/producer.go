@@ -23,7 +23,7 @@ type KafkaProducer struct {
 
 func (kp *KafkaProducer) Init(config map[string]interface{}, schemavalidator schemavalidator.SchemaValidator, logsChannel chan<- types.LogEvent) error {
 	if kp.kafkaProducer != nil {
-		return errors.New("Producer already instantiated")
+		return errors.New("producer already instantiated")
 	}
 	kp.schemavalidator = schemavalidator
 	configMap, err := kp.buildKafkaConfigMap(config)
@@ -46,10 +46,10 @@ func (kp *KafkaProducer) Init(config map[string]interface{}, schemavalidator sch
 func (kp *KafkaProducer) SendMessage(topicName string, key, value any, keySchemaId, valueSchemaId int) error {
 	var err error
 	if kp.kafkaProducer == nil {
-		return errors.New("The producer was not defined")
+		return errors.New("the producer was not defined")
 	}
 	if kp.shutdownInProgress {
-		return errors.New("Shutdown in progress")
+		return errors.New("shutdown in progress")
 	}
 	var keyWithSchemaId, valueWithSchemaId []byte
 	if key != nil {
@@ -77,7 +77,7 @@ func (kp *KafkaProducer) SendMessage(topicName string, key, value any, keySchema
 	switch ev := producerEvent.(type) {
 	case *kafka.Message:
 		if ev.TopicPartition.Error != nil {
-			err = errors.New(fmt.Sprintf("Error on send message key %s, value %s to %v\n", string(ev.Key), string(ev.Value), ev.TopicPartition))
+			err = fmt.Errorf("error on send message key %s, value %s to %v", string(ev.Key), string(ev.Value), ev.TopicPartition)
 		}
 	default:
 		err = nil
@@ -110,7 +110,7 @@ func (kp *KafkaProducer) buildKafkaConfigMap(config map[string]interface{}) (kaf
 	var ok bool
 	strContainer, ok = config["bootstrap.servers"].(string)
 	if !ok || strContainer == "" {
-		return nil, errors.New("Missing required property \"bootstrap.server\".")
+		return nil, errors.New("missing required property \"bootstrap.server\"")
 	}
 	kafkaConfigMap["bootstrap.servers"] = strContainer
 	strContainer, ok = config["security.protocol"].(string)
@@ -120,12 +120,12 @@ func (kp *KafkaProducer) buildKafkaConfigMap(config map[string]interface{}) (kaf
 			kafkaConfigMap["sasl.mechanism"] = "PLAIN"
 			strContainer, ok = config["sasl.username"].(string)
 			if !ok || strContainer == "" {
-				return nil, errors.New("Missing required property \"sasl.username\" (due to \"security.protocol\" as SASL_SSL).")
+				return nil, errors.New("missing required property \"sasl.username\" (due to \"security.protocol\" as SASL_SSL)")
 			}
 			kafkaConfigMap["sasl.username"] = strContainer
 			strContainer, ok = config["sasl.password"].(string)
 			if !ok || strContainer == "" {
-				return nil, errors.New("Missing required property \"sasl.password\" (due to \"security.protocol\" as SASL_SSL).")
+				return nil, errors.New("missing required property \"sasl.password\" (due to \"security.protocol\" as SASL_SSL)")
 			}
 			kafkaConfigMap["sasl.password"] = strContainer
 		} else if strContainer != "" {
