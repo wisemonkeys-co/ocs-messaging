@@ -13,6 +13,7 @@ type SchemaValidator struct {
 	schemaTypeHandlerMap map[string]schemaTypeHandlerInterface
 }
 
+// Init setup the instance
 func (sv *SchemaValidator) Init(url, key, secret string) {
 	sv.srClient = srclient.CreateSchemaRegistryClient(url)
 	if key != "" && secret != "" {
@@ -29,6 +30,19 @@ func (sv *SchemaValidator) setupSchemaTypeHandlerMap() {
 	}
 }
 
+// Decode extracts the schema from data, validates the data payload and stores the result in the value pointed to by v. If v is nil or not a pointer, it will returns an error.
+//
+// The data should have the following struct:
+//
+// * [0] - Magic byte (allways 0)
+//
+// * [1:5] - 32 bit integer that indicates the schema id
+//
+// * [6:] - Payload
+//
+// The v should be a pointer.
+//
+// Currently, only json-schema is supported
 func (sv *SchemaValidator) Decode(data []byte, v any) error {
 	schemaID := binary.BigEndian.Uint32(data[1:5])
 	schema, err := sv.getSchema(int(schemaID))
@@ -43,6 +57,15 @@ func (sv *SchemaValidator) Decode(data []byte, v any) error {
 	return errors.New(fmt.Sprintf("Decoder type %s not implemented", schemaType))
 }
 
+// Encode validates the data using the schema, indicated by the schemaID, and returns the serialized data in the following format:
+//
+// * [0] - Magic byte (allways 0)
+//
+// * [1:5] - 32 bit integer that indicates the schema id
+//
+// * [6:] - Payload
+//
+// Currently, only json-schema is supported
 func (sv *SchemaValidator) Encode(schemaID int, data any) (payload []byte, err error) {
 	schema, err := sv.srClient.GetSchema(int(schemaID))
 	if err != nil {
