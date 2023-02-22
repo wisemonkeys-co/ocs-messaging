@@ -8,20 +8,20 @@ import (
 	"github.com/riferrei/srclient"
 )
 
-// SchemaValidator abstracts the following features:
+// SchemaRegistryValidator abstracts the following features:
 //
 // * Integration with schema-registry
 //
 // * Data validation based on schemas (currently, only supports json-schema)
 //
 // * Data serialization and desserialization in the schema-registry pattern ([0] MagicByte, [1:5] Schema id, [6:] Payload)
-type SchemaValidator struct {
+type SchemaRegistryValidator struct {
 	srClient             *srclient.SchemaRegistryClient
 	schemaTypeHandlerMap map[string]schemaTypeHandlerInterface
 }
 
 // Init setup the instance
-func (sv *SchemaValidator) Init(url, key, secret string) {
+func (sv *SchemaRegistryValidator) Init(url, key, secret string) {
 	sv.srClient = srclient.CreateSchemaRegistryClient(url)
 	if key != "" && secret != "" {
 		sv.srClient.SetCredentials(key, secret)
@@ -29,7 +29,7 @@ func (sv *SchemaValidator) Init(url, key, secret string) {
 	sv.setupSchemaTypeHandlerMap()
 }
 
-func (sv *SchemaValidator) setupSchemaTypeHandlerMap() {
+func (sv *SchemaRegistryValidator) setupSchemaTypeHandlerMap() {
 	sv.schemaTypeHandlerMap = make(map[string]schemaTypeHandlerInterface)
 	sv.schemaTypeHandlerMap[srclient.Json.String()] = &JsonSchemaValidator{}
 	for _, sth := range sv.schemaTypeHandlerMap {
@@ -50,7 +50,7 @@ func (sv *SchemaValidator) setupSchemaTypeHandlerMap() {
 // The v should be a pointer.
 //
 // Currently, only supports json-schema
-func (sv *SchemaValidator) Decode(data []byte, v any) error {
+func (sv *SchemaRegistryValidator) Decode(data []byte, v any) error {
 	schemaID := binary.BigEndian.Uint32(data[1:5])
 	schema, err := sv.getSchema(int(schemaID))
 	if err != nil {
@@ -73,7 +73,7 @@ func (sv *SchemaValidator) Decode(data []byte, v any) error {
 // * [6:] - Payload
 //
 // Currently, only supports json-schema
-func (sv *SchemaValidator) Encode(schemaID int, data any) (payload []byte, err error) {
+func (sv *SchemaRegistryValidator) Encode(schemaID int, data any) (payload []byte, err error) {
 	schema, err := sv.srClient.GetSchema(int(schemaID))
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error getting the schema with id '%d' %s", schemaID, err))
@@ -91,7 +91,7 @@ func (sv *SchemaValidator) Encode(schemaID int, data any) (payload []byte, err e
 	return
 }
 
-func (sv *SchemaValidator) getSchema(schemaID int) (schema *srclient.Schema, err error) {
+func (sv *SchemaRegistryValidator) getSchema(schemaID int) (schema *srclient.Schema, err error) {
 	schema, err = sv.srClient.GetSchema(schemaID)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Error getting the schema with id '%d' %s", schemaID, err))
@@ -99,7 +99,7 @@ func (sv *SchemaValidator) getSchema(schemaID int) (schema *srclient.Schema, err
 	return
 }
 
-func (sv *SchemaValidator) buildPayloadBuffer(schemaId uint32, data []byte) []byte {
+func (sv *SchemaRegistryValidator) buildPayloadBuffer(schemaId uint32, data []byte) []byte {
 	dataSchemaId := make([]byte, 4)
 	binary.BigEndian.PutUint32(dataSchemaId, schemaId)
 	var payloadWithSchema []byte

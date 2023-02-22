@@ -16,7 +16,7 @@ import (
 var jsonSchemaTypeString string = `{"title":"String Schema","description":"Schema 2 test","type":"string","pattern":"^[0-9a-fA-F]{24}$"}`
 var jsonSchemaTypeNumber string = `{"title":"Number Schema","description":"Schema 2 test","type":"number","minimum": 3.14,"exclusiveMaximum": 3.15}`
 var jsonSchemaTypeObject string = `{"title":"Object Schema","type":"object","required":["foo"],"properties":{"foo":{"type":"string"},"bar":{"type":"number"}}}`
-var schemaValidator SchemaValidator
+var schemaValidator SchemaRegistryValidator
 
 func TestDecodeJsonObjectData(t *testing.T) {
 	var dataMap map[string]interface{}
@@ -247,7 +247,7 @@ func TestMain(m *testing.M) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(m)
 	}))
-	schemaValidator = SchemaValidator{}
+	schemaValidator = SchemaRegistryValidator{}
 	schemaValidator.Init(srServerMock.URL, srKey, srPass)
 	exitCode := m.Run()
 	os.Exit(exitCode)
