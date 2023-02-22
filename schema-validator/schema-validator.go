@@ -8,6 +8,13 @@ import (
 	"github.com/riferrei/srclient"
 )
 
+// SchemaValidator abstracts the following features:
+//
+// * Integration with schema-registry
+//
+// * Data validation based on schemas (currently, only supports json-schema)
+//
+// * Data serialization and desserialization in the schema-registry pattern ([0] MagicByte, [1:5] Schema id, [6:] Payload)
 type SchemaValidator struct {
 	srClient             *srclient.SchemaRegistryClient
 	schemaTypeHandlerMap map[string]schemaTypeHandlerInterface
@@ -42,7 +49,7 @@ func (sv *SchemaValidator) setupSchemaTypeHandlerMap() {
 //
 // The v should be a pointer.
 //
-// Currently, only json-schema is supported
+// Currently, only supports json-schema
 func (sv *SchemaValidator) Decode(data []byte, v any) error {
 	schemaID := binary.BigEndian.Uint32(data[1:5])
 	schema, err := sv.getSchema(int(schemaID))
@@ -65,7 +72,7 @@ func (sv *SchemaValidator) Decode(data []byte, v any) error {
 //
 // * [6:] - Payload
 //
-// Currently, only json-schema is supported
+// Currently, only supports json-schema
 func (sv *SchemaValidator) Encode(schemaID int, data any) (payload []byte, err error) {
 	schema, err := sv.srClient.GetSchema(int(schemaID))
 	if err != nil {
