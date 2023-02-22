@@ -85,24 +85,41 @@ func (kp *KafkaProducer) SendMessage(topicName string, key, value any, keySchema
 	return err
 }
 
+func (kp *KafkaProducer) SendRawData(topicName string, key, value []byte) error {
+	var err error
+	if kp.kafkaProducer == nil {
+		return errors.New("the producer was not defined")
+	}
+	if kp.shutdownInProgress {
+		return errors.New("shutdown in progress")
+	}
+	kafkaMessage := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &topicName,
+			Partition: kafka.PartitionAny,
+		},
+		Key:   key,
+		Value: value,
+	}
+	kp.kafkaProducer.Produce(kafkaMessage, nil)
+	producerEvent := <-kp.kafkaProducer.Events()
+	switch ev := producerEvent.(type) {
+	case *kafka.Message:
+		if ev.TopicPartition.Error != nil {
+			err = fmt.Errorf("error on send message key %s, value %s to %v", string(ev.Key), string(ev.Value), ev.TopicPartition)
+		}
+	default:
+		err = nil
+	}
+	return err
+}
+
 func (kp *KafkaProducer) StopProducer() {
 	kp.shutdownInProgress = true
 	flushTimeout, _ = time.ParseDuration("3s")
 	kp.kafkaProducer.Flush(int(flushTimeout.Milliseconds()))
 	kp.kafkaProducer.Close()
 }
-
-/*
-func (kp *KafkaProducer) buildMessageBuffer(data []byte, schemaId uint32) ([]byte, error) {
-	dataSchemaId := make([]byte, 4)
-	binary.BigEndian.PutUint32(dataSchemaId, schemaId)
-	var valueWithSchema []byte
-	valueWithSchema = append(valueWithSchema, byte(0))
-	valueWithSchema = append(valueWithSchema, dataSchemaId...)
-	valueWithSchema = append(valueWithSchema, data...)
-	return valueWithSchema, kp.schemavalidator.ValidateData(valueWithSchema)
-}
-*/
 
 func (kp *KafkaProducer) buildKafkaConfigMap(config map[string]interface{}) (kafka.ConfigMap, error) {
 	kafkaConfigMap := kafka.ConfigMap{}
