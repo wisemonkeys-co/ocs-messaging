@@ -35,14 +35,14 @@ func (jsv *JsonSchemaValidator) decode(data []byte, schema *srclient.Schema, v a
 		case "string":
 			pointer, ok := v.(*string)
 			if !ok {
-				err = errors.New("Invalid type poiter for string")
+				err = errors.New("invalid type poiter for string")
 				return
 			}
 			*pointer = string(data)
 		case "number":
 			pointer, ok := v.(*float64)
 			if !ok {
-				err = errors.New("Invalid type poiter for number (float64)")
+				err = errors.New("invalid type poiter for number (float64)")
 				return
 			}
 			bits := binary.BigEndian.Uint64(data)
@@ -61,7 +61,7 @@ func (jsv *JsonSchemaValidator) encode(data any, schema *srclient.Schema) (paylo
 	if schemaRootProperitesMap["type"] == "string" {
 		strData, ok := data.(string)
 		if !ok {
-			err = errors.New("Expected string payload")
+			err = errors.New("expected string payload")
 		} else {
 			payload = []byte(strData)
 		}
@@ -70,7 +70,7 @@ func (jsv *JsonSchemaValidator) encode(data any, schema *srclient.Schema) (paylo
 	if schemaRootProperitesMap["type"] == "number" {
 		numData, ok := data.(float64)
 		if !ok {
-			err = errors.New("Expected number (float64) payload")
+			err = errors.New("expected number (float64) payload")
 		} else {
 			var buf bytes.Buffer
 			binary.Write(&buf, binary.BigEndian, numData)
@@ -101,7 +101,7 @@ func (jsv *JsonSchemaValidator) getSchemaRootPropertiesMap(schema *srclient.Sche
 	schemaStr := schema.Schema()
 	err = json.Unmarshal([]byte(schemaStr), &originalJsonSchema)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Error unmarshal json-schema for id %d %s", schema.ID(), err.Error()))
+		err = fmt.Errorf("error unmarshal json-schema for id %d %s", schema.ID(), err.Error())
 	}
 	return
 }
@@ -123,7 +123,7 @@ func (jsv *JsonSchemaValidator) validatePrimitiveData(data []byte, originalJsonS
 		var compileSchemaContainerError error
 		jsonSchemaContainer, compileSchemaContainerError = jsonschema.CompileString("schema.json", string(fakeJsonSchemaString))
 		if compileSchemaContainerError != nil {
-			return errors.New(fmt.Sprintf("Error compile new schema for primitive type id '%d': %s", schemaId, compileSchemaContainerError))
+			return fmt.Errorf("error compile new schema for primitive type id '%d': %s", schemaId, compileSchemaContainerError)
 		}
 		jsv.customSchemas[schemaId] = jsonSchemaContainer
 	} else {
@@ -140,7 +140,7 @@ func (jsv *JsonSchemaValidator) validatePrimitiveData(data []byte, originalJsonS
 	}
 	validationError := jsonSchemaContainer.Validate(jsonDataContainer)
 	if validationError != nil {
-		return errors.New(fmt.Sprintf("Error validate json primitive for id '%d' %s", schemaId, validationError))
+		return fmt.Errorf("error validate json primitive for id '%d' %s", schemaId, validationError)
 	}
 	return nil
 }
@@ -149,11 +149,11 @@ func (jsv *JsonSchemaValidator) validateJsonDocData(data []byte, jsonSchema *jso
 	var jsonMap map[string]interface{}
 	jsonError := json.Unmarshal(data, &jsonMap)
 	if jsonError != nil {
-		return errors.New(fmt.Sprintf("Error unmarshal json for id '%d' %s", schemaId, jsonError))
+		return fmt.Errorf("error unmarshal json for id '%d' %s", schemaId, jsonError)
 	}
 	validationError := jsonSchema.Validate(jsonMap)
 	if validationError != nil {
-		return errors.New(fmt.Sprintf("Error validate json for id '%d' %s", schemaId, validationError))
+		return fmt.Errorf("error validate json for id '%d' %s", schemaId, validationError)
 	}
 	return nil
 }
