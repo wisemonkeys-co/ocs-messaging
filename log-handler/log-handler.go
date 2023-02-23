@@ -66,3 +66,7 @@ func (l *LogHandler) HandleLogs() error {
 	}()
 	return nil
 }
+
+func (l *LogHandler) SendCustomLog(logData types.LogEvent) {
+	l.logEventChan <- logData
+}
