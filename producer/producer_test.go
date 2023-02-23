@@ -27,7 +27,7 @@ func TestSendMessage(t *testing.T) {
 	valueSchemaId := 6
 	msv.SetReturnedValue([]byte{0, 0, 0, 0, 5, 107, 101, 121}, nil)          // "key"
 	msv.SetReturnedValue([]byte{0, 0, 0, 0, 6, 118, 97, 108, 117, 101}, nil) // "value"
-	sendMessageError := producer.SendMessage(topicName, key, value, keySchemaId, valueSchemaId)
+	sendMessageError := producer.SendSchemaBasedMessage(topicName, key, value, keySchemaId, valueSchemaId)
 	if sendMessageError != nil {
 		t.Error(sendMessageError)
 		return
@@ -57,7 +57,7 @@ func TestSendMessageWithoutKey(t *testing.T) {
 	value := "value"
 	valueSchemaId := 6
 	msv.SetReturnedValue([]byte{0, 0, 0, 0, 6, 118, 97, 108, 117, 101}, nil) // "value"
-	sendMessageError := producer.SendMessage(topicName, nil, []byte(value), 0, valueSchemaId)
+	sendMessageError := producer.SendSchemaBasedMessage(topicName, nil, []byte(value), 0, valueSchemaId)
 	if sendMessageError != nil {
 		t.Error(sendMessageError)
 		return

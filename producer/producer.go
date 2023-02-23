@@ -43,13 +43,16 @@ func (kp *KafkaProducer) Init(config map[string]interface{}, schemavalidator sch
 	return nil
 }
 
-func (kp *KafkaProducer) SendMessage(topicName string, key, value any, keySchemaId, valueSchemaId int) error {
+func (kp *KafkaProducer) SendSchemaBasedMessage(topicName string, key, value any, keySchemaId, valueSchemaId int) error {
 	var err error
 	if kp.kafkaProducer == nil {
 		return errors.New("the producer was not defined")
 	}
 	if kp.shutdownInProgress {
 		return errors.New("shutdown in progress")
+	}
+	if kp.schemavalidator == nil {
+		return errors.New("the schema validator interface is not defined")
 	}
 	var keyWithSchemaId, valueWithSchemaId []byte
 	if key != nil {
