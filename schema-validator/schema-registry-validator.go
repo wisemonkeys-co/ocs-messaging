@@ -50,6 +50,9 @@ func (sv *SchemaRegistryValidator) setupSchemaTypeHandlerMap() {
 //
 // Currently, only supports json-schema
 func (sv *SchemaRegistryValidator) Decode(data []byte, v any) error {
+	if len(data) < 6 {
+		return fmt.Errorf("slice capacity less than 6 (%d)", len(data))
+	}
 	schemaID := binary.BigEndian.Uint32(data[1:5])
 	schema, err := sv.getSchema(int(schemaID))
 	if err != nil {
