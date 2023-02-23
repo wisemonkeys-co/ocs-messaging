@@ -29,7 +29,7 @@ type KafkaConsumer struct {
 }
 
 func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList []string, messageChannel chan<- SimpleMessage, logChannel chan<- types.LogEvent) error {
-	if messageChannel == nil || logChannel == nil {
+	if messageChannel == nil {
 		return errors.New("missing required channels")
 	}
 	readTimeout, _ = time.ParseDuration("3s")
@@ -48,7 +48,10 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 	if startConsumerError != nil {
 		return startConsumerError
 	}
-	kc.logHandler.HandleLogs()
+	startConsumerError = kc.logHandler.HandleLogs()
+	if startConsumerError != nil {
+		return startConsumerError
+	}
 	startConsumerError = kc.kafkaConsumer.SubscribeTopics(topicList, nil)
 	if startConsumerError != nil {
 		return startConsumerError
