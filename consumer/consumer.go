@@ -20,11 +20,6 @@ type SimpleMessage struct {
 	Partition int32
 }
 
-type UseSchemaRegistry struct {
-	Key   bool
-	Value bool
-}
-
 type KafkaConsumer struct {
 	kafkaConsumer      *kafka.Consumer
 	messageChannel     chan<- SimpleMessage
