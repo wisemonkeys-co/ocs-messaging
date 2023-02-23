@@ -12,7 +12,7 @@ import (
 	"github.com/wisemonkeys-co/ocs-messaging/types"
 )
 
-var LogChannel chan<- types.LogEvent
+var logChannel chan<- types.LogEvent
 
 var topicName string
 var msv testutils.MockSchemaValidator
@@ -102,9 +102,9 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Error to instantiate the consumer: %v", err)
 		os.Exit(1)
 	}
-	LogChannel = make(chan<- types.LogEvent)
+	logChannel = make(chan<- types.LogEvent)
 	producer = KafkaProducer{}
-	err = producer.Init(producerConfig, &msv, LogChannel)
+	err = producer.Init(producerConfig, &msv, logChannel)
 	if err != nil {
 		fmt.Printf("Error on producer init: %v", err)
 		os.Exit(1)
