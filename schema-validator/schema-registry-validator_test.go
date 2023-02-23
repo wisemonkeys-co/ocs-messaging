@@ -56,7 +56,7 @@ func TestEncodeJsonObjectData(t *testing.T) {
 	json.Unmarshal(payload[5:], &dataMap)
 	for key, value := range data2Encode {
 		if value != dataMap[key] {
-			t.Error(fmt.Sprintf("Got %v but expected %v on key %s", dataMap[key], value, key))
+			t.Errorf("Got %v but expected %v on key %s", dataMap[key], value, key)
 			return
 		}
 	}
@@ -163,7 +163,7 @@ func TestEncodeJsonNumberData(t *testing.T) {
 	}
 	bits := binary.BigEndian.Uint64(payload[5:])
 	if math.Float64frombits(bits) != 3.14 {
-		t.Error(fmt.Sprintf("Unexpected value %f", math.Float64frombits(bits)))
+		t.Errorf("Unexpected value %f", math.Float64frombits(bits))
 		return
 	}
 	_, encodeError = schemaValidator.Encode(3, true)
