@@ -186,7 +186,7 @@ func TestNotImplementedHandler(t *testing.T) {
 		t.Errorf("The error data must be filled")
 		return
 	}
-	if errorValidate.Error() != "Decoder type unknown not implemented" {
+	if errorValidate.Error() != "decoder type unknown not implemented" {
 		t.Errorf(fmt.Sprintf("Unexpected message: %s", errorValidate.Error()))
 		return
 	}
