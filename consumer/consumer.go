@@ -1,4 +1,4 @@
-package kafkaConsumer
+package consumer
 
 import (
 	"errors"
