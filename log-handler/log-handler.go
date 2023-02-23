@@ -18,7 +18,7 @@ type LogHandler struct {
 // Init provide the instance dependencies
 func (l *LogHandler) Init(instanceName string, kafkaLogs <-chan kafka.LogEvent, logEventChan chan<- types.LogEvent) error {
 	if kafkaLogs == nil || instanceName == "" || logEventChan == nil {
-		return errors.New("Missing params")
+		return errors.New("missing params")
 	}
 	l.instanceName = instanceName
 	l.kafkaLogs = kafkaLogs
@@ -29,7 +29,7 @@ func (l *LogHandler) Init(instanceName string, kafkaLogs <-chan kafka.LogEvent, 
 // HandleLogs starts to listen the kafka client logs
 func (l *LogHandler) HandleLogs() error {
 	if l.instanceName == "" {
-		return errors.New("Instance not initialized")
+		return errors.New("instance not initialized")
 	}
 	go func() {
 		for {
