@@ -2,7 +2,6 @@ package schemavalidator
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 
 	"github.com/riferrei/srclient"
@@ -61,7 +60,7 @@ func (sv *SchemaRegistryValidator) Decode(data []byte, v any) error {
 		err = sv.schemaTypeHandlerMap[schemaType].decode(data[5:], schema, v)
 		return err
 	}
-	return errors.New(fmt.Sprintf("Decoder type %s not implemented", schemaType))
+	return fmt.Errorf("decoder type %s not implemented", schemaType)
 }
 
 // Encode validates the data using the schema, indicated by the schemaID, and returns the serialized data in the following format:
@@ -76,7 +75,8 @@ func (sv *SchemaRegistryValidator) Decode(data []byte, v any) error {
 func (sv *SchemaRegistryValidator) Encode(schemaID int, data any) (payload []byte, err error) {
 	schema, err := sv.srClient.GetSchema(int(schemaID))
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Error getting the schema with id '%d' %s", schemaID, err))
+		err = fmt.Errorf("error getting the schema with id '%d': %s", schemaID, err)
+		return
 	}
 	schemaType := schema.SchemaType().String()
 	if sv.schemaTypeHandlerMap[schemaType] != nil {
@@ -87,14 +87,14 @@ func (sv *SchemaRegistryValidator) Encode(schemaID int, data any) (payload []byt
 		payload = sv.buildPayloadBuffer(uint32(schemaID), payload)
 		return
 	}
-	err = errors.New(fmt.Sprintf("Encoder type %s not implemented", schemaType))
+	err = fmt.Errorf("encoder type %s not implemented", schemaType)
 	return
 }
 
 func (sv *SchemaRegistryValidator) getSchema(schemaID int) (schema *srclient.Schema, err error) {
 	schema, err = sv.srClient.GetSchema(schemaID)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Error getting the schema with id '%d' %s", schemaID, err))
+		err = fmt.Errorf("error getting the schema with id '%d': %s", schemaID, err)
 	}
 	return
 }
