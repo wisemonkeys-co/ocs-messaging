@@ -8,12 +8,14 @@ import (
 	"github.com/wisemonkeys-co/ocs-messaging/types"
 )
 
+// LogHandler sends kafka client's logs to a specific channel
 type LogHandler struct {
 	instanceName string
 	kafkaLogs    <-chan kafka.LogEvent
 	logEventChan chan<- types.LogEvent
 }
 
+// Init provide the instance dependencies
 func (l *LogHandler) Init(instanceName string, kafkaLogs <-chan kafka.LogEvent, logEventChan chan<- types.LogEvent) error {
 	if kafkaLogs == nil || instanceName == "" || logEventChan == nil {
 		return errors.New("Missing params")
@@ -24,6 +26,7 @@ func (l *LogHandler) Init(instanceName string, kafkaLogs <-chan kafka.LogEvent, 
 	return nil
 }
 
+// HandleLogs starts to listen the kafka client logs
 func (l *LogHandler) HandleLogs() error {
 	if l.instanceName == "" {
 		return errors.New("Instance not initialized")
