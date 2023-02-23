@@ -2,6 +2,7 @@ package loghandler
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -17,7 +18,7 @@ type LogHandler struct {
 
 // Init provide the instance dependencies
 func (l *LogHandler) Init(instanceName string, kafkaLogs <-chan kafka.LogEvent, logEventChan chan<- types.LogEvent) error {
-	if kafkaLogs == nil || instanceName == "" || logEventChan == nil {
+	if kafkaLogs == nil || instanceName == "" {
 		return errors.New("missing params")
 	}
 	l.instanceName = instanceName
@@ -61,6 +62,10 @@ func (l *LogHandler) HandleLogs() error {
 						}
 					}
 				}
+			} else {
+				if log.Message != "" {
+					fmt.Println(log.String())
+				}
 			}
 		}
 	}()
@@ -68,5 +73,9 @@ func (l *LogHandler) HandleLogs() error {
 }
 
 func (l *LogHandler) SendCustomLog(logData types.LogEvent) {
-	l.logEventChan <- logData
+	if l.logEventChan != nil {
+		l.logEventChan <- logData
+	} else {
+		fmt.Printf("%s, %s, %s, %s\n", logData.InstanceName, logData.Type, logData.Tag, logData.Message)
+	}
 }

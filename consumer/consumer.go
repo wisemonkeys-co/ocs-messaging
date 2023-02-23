@@ -25,6 +25,7 @@ type KafkaConsumer struct {
 	messageChannel     chan<- SimpleMessage
 	shutdownInProgress bool
 	logHandler         loghandler.LogHandler
+	safeShutdown       chan int
 }
 
 func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList []string, messageChannel chan<- SimpleMessage, logChannel chan<- types.LogEvent) error {
@@ -32,6 +33,7 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 		return errors.New("missing required channels")
 	}
 	readTimeout, _ = time.ParseDuration("3s")
+	kc.safeShutdown = make(chan int)
 	kc.messageChannel = messageChannel
 	consumerConfigMap, startConsumerError := kc.buildKafkaConfigMap(config)
 	if startConsumerError != nil {
@@ -54,6 +56,13 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 	go func() {
 		for {
 			if kc.shutdownInProgress {
+				kc.logHandler.SendCustomLog(types.LogEvent{
+					InstanceName: "consumer",
+					Tag:          "FETCH",
+					Type:         "Info",
+					Message:      "Fetch routine stopped",
+				})
+				kc.safeShutdown <- 1
 				return
 			}
 			msg, err := kc.kafkaConsumer.ReadMessage(readTimeout)
@@ -82,7 +91,13 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 
 func (kc *KafkaConsumer) StopConsumer() {
 	kc.shutdownInProgress = true
-	time.Sleep(readTimeout * 2)
+	<-kc.safeShutdown
+	kc.logHandler.SendCustomLog(types.LogEvent{
+		InstanceName: "consumer",
+		Tag:          "INFRA",
+		Type:         "Info",
+		Message:      "Trying to close consumer",
+	})
 	kc.kafkaConsumer.Close()
 	kc.kafkaConsumer = nil
 }
