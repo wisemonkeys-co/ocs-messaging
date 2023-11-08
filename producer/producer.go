@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	loghandler "github.com/wisemonkeys-co/ocs-messaging/log-handler"
 	schemavalidator "github.com/wisemonkeys-co/ocs-messaging/schema-validator"
 	"github.com/wisemonkeys-co/ocs-messaging/types"
