@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	loghandler "github.com/wisemonkeys-co/ocs-messaging/log-handler"
 	schemavalidator "github.com/wisemonkeys-co/ocs-messaging/schema-validator"
 	"github.com/wisemonkeys-co/ocs-messaging/types"
@@ -56,13 +56,11 @@ func (kp *KafkaProducer) SendSchemaBasedMessage(topicName string, key, value any
 	}
 	var keyWithSchemaId, valueWithSchemaId []byte
 	if key != nil {
-		//keyWithSchemaId, err = kp.buildMessageBuffer(key, keySchemaId)
 		keyWithSchemaId, err = kp.schemavalidator.Encode(keySchemaId, key)
 		if err != nil {
 			return err
 		}
 	}
-	//valueWithSchemaId, err = kp.buildMessageBuffer(value, valueSchemaId)
 	valueWithSchemaId, err = kp.schemavalidator.Encode(valueSchemaId, value)
 	if err != nil {
 		return err

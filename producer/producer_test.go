@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	testutils "github.com/wisemonkeys-co/ocs-messaging/test-utils"
 	"github.com/wisemonkeys-co/ocs-messaging/types"
 )
 
-var logChannel chan<- types.LogEvent
+var logChannel chan types.LogEvent
 
 var topicName string
 var msv testutils.MockSchemaValidator
@@ -102,7 +102,13 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Error to instantiate the consumer: %v", err)
 		os.Exit(1)
 	}
-	logChannel = make(chan<- types.LogEvent)
+	logChannel = make(chan types.LogEvent)
+	go func() {
+		for {
+			log := <-logChannel
+			fmt.Println(log)
+		}
+	}()
 	producer = KafkaProducer{}
 	err = producer.Init(producerConfig, &msv, logChannel)
 	if err != nil {
