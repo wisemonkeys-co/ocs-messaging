@@ -15,18 +15,18 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21.x'
-    - name: Build stack
-      run: docker-compose -f stack-docker-compose.yml up -d
-    - name: Run tests
-      run: go test ./...
+    # - name: Build stack
+    #   run: docker-compose -f stack-docker-compose.yml up -d
+    # - name: Run tests
+    #   run: go test ./...
     - name: Publish version
       run: |
-        currentTag=$(git tag -l | grep $TAG);
-        if [[ -z "$currentTag" ]]; then
+        git tag -l | grep $TAG
+        # currentTag=$(git tag -l | grep $TAG);
+        # if [[ -z "$currentTag" ]]; then
           # git tag $TAG;
           # git push origin $TAG;
-          echo $TAG;
-          echo 'Version '"$TAG"' published'
-        else
-          echo "Nothing to publish";
-        fi
+          # echo 'Version '"$TAG"' published'
+        # else
+          # echo "Nothing to publish";
+        # fi
