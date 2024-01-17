@@ -21,7 +21,7 @@ jobs:
     #   run: go test ./...
     - name: Publish version
       run: |
-        git tag -l | grep $TAG
+        git tag -l
         # currentTag=$(git tag -l | grep $TAG);
         # if [[ -z "$currentTag" ]]; then
           # git tag $TAG;
