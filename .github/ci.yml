@@ -1,0 +1,28 @@
+name: CI Stage
+on:
+  push:
+    branches: [ actions ]
+env:
+    TAG: v0.0.3
+jobs:  
+  build:    
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Build stack
+      run: docker-compose -f stack-docker-compose.yml up -d
+    - name: Run tests
+      run: go test ./...
+    - name: Publish version
+      run: |
+        currentTag=$(git tag -l | grep $TAG);
+        if [[ -z "$currentTag" ]]; then
+          # git tag $TAG;
+          # git push origin $TAG;
+          echo $TAG;
+          echo 'Version '"$TAG"' published'
+        else
+          echo "Nothing to publish";
+        fi
