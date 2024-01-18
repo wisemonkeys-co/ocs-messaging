@@ -22,8 +22,8 @@ jobs:
     - name: Publish version
       shell: bash {0}
       run: |
-        currentTag=$(git fetch origin | git tag -l | grep '"$TAG"');
-        echo $currentTag;
+        currentTag=$(git fetch origin | git tag -l | grep $TAG);
+        echo 'asd '"$currentTag"' asd '"$TAG";
         if [[ -z "$currentTag" ]]; then
           # git tag $TAG;
           # git push origin $TAG;
