@@ -23,15 +23,11 @@ jobs:
       shell: bash {0}
       run: |
         git fetch origin
-        echo 'tag '"$TAG"
         CURRENT_TAG=$(git tag -l | grep "$TAG");
-        git tag -l
-        git tag -l | grep "$TAG"
-        echo 'asd '"$CURRENT_TAG"' asd '"$TAG";
-        # if [[ -z "$CURRENT_TAG" ]]; then
+        if [[ -z "$CURRENT_TAG" ]]; then
           # git tag $TAG;
           # git push origin $TAG;
-          # echo 'Version '"$TAG"' published'
-        # else
-          # echo "Nothing to publish";
-        # fi
+          echo 'Version '"$TAG"' published'
+        else
+          echo "Nothing to publish";
+        fi
