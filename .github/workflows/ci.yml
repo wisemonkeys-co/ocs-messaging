@@ -25,9 +25,9 @@ jobs:
         currentTag=$(git tag -l | grep $TAG);
         echo $currentTag;
         if [[ -z "$currentTag" ]]; then
-          # git tag ${TAG};
-          # git push origin ${TAG};
-          echo 'Version '"${TAG}"' published'
+          # git tag $TAG;
+          # git push origin $TAG;
+          echo 'Version '"$TAG"' published'
         else
           echo "Nothing to publish";
         fi
