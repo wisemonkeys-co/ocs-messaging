@@ -20,8 +20,10 @@ jobs:
     # - name: Run tests
     #   run: go test ./...
     - name: Publish version
+      shell: bash {0}
       run: |
         currentTag=$(git tag -l | grep ${TAG});
+        echo $currentTag;
         if [[ -z "$currentTag" ]]; then
           # git tag ${TAG};
           # git push origin ${TAG};
