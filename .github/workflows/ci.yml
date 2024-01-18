@@ -22,7 +22,7 @@ jobs:
     - name: Publish version
       shell: bash {0}
       run: |
-        currentTag=$(git fetch origin | git tag -l | grep $TAG);
+        currentTag=$(git fetch origin | git tag -l | grep '"$TAG"');
         echo $currentTag;
         if [[ -z "$currentTag" ]]; then
           # git tag $TAG;
