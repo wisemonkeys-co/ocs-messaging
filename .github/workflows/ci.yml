@@ -1,7 +1,5 @@
 name: CI Stage
-on:
-  push:
-    branches: [ actions ]
+on: [ push ]
 env:
     TAG: v0.0.3
 jobs:  
@@ -15,6 +13,18 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21.x'
+
+    - name: Cache services
+      id: cache-docker
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-services
+      with:
+        path: |
+          /var/lib/docker/image
+          /var/lib/docker/containers
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
+
     - name: Build stack
       run: docker-compose -f stack-docker-compose.yml up -d
     - name: Run tests
