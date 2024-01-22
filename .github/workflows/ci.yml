@@ -1,0 +1,65 @@
+name: CI Stage
+on: [ push ]
+env:
+    TAG: v0.0.3
+jobs:  
+  build:    
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+    - name: Setup Go version
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21.x'
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+    # # Define stack cache
+    # - name: Cache stack images
+    #   id: cache-docker
+    #   uses: actions/cache@v3
+    #   env:
+    #     cache-name: cache-services
+    #   with:
+    #     path: |
+    #       ~/stack-images
+    #     key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
+    # # Load stack images from cache
+    # - if: ${{ steps.cache-docker.outputs.cache-hit == 'true' }}
+    #   name: Import stack images
+    #   run: |
+    #     docker image load < ~/stack-images/zookeeper.tgz
+    #     docker image load < ~/stack-images/kafka.tgz
+    #     docker image load < ~/stack-images/schema-registry.tgz
+    - name: Build stack
+      run: docker-compose -f stack-docker-compose.yml up -d
+    - name: Run tests
+      run: go test ./...
+    - name: Publish version
+      shell: bash {0}
+      run: |
+        git fetch origin
+        CURRENT_TAG=$(git tag -l | grep "$TAG");
+        if [[ -z "$CURRENT_TAG" ]]; then
+          git tag $TAG;
+          git push origin $TAG;
+          echo 'Version '"$TAG"' published'
+        else
+          echo "Nothing to publish";
+        fi
+    # # Store stack images on cache
+    # - if: ${{ steps.cache-docker.outputs.cache-hit != 'true' }}
+    #   name: Export stack images
+    #   timeout-minutes: 6
+    #   run: |
+    #     mkdir ~/stack-images
+    #     cd ~/stack-images
+    #     docker save confluentinc/cp-zookeeper | gzip -9 > zookeeper.tgz
+    #     docker save confluentinc/cp-kafka | gzip -9 > kafka.tgz
+    #     docker save confluentinc/cp-schema-registry | gzip -9 > schema-registry.tgz
