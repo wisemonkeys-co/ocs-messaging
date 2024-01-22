@@ -23,7 +23,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
     
-    - name: Change permission of docker directory to cache services
+    - name: Change permission of docker directory to restore cache services
       timeout-minutes: 2
       run: |
         sudo chmod -R 777 /var/lib/docker
@@ -53,3 +53,9 @@ jobs:
         else
           echo "Nothing to publish";
         fi
+
+    - if: ${{ steps.cache-docker.outputs.cache-hit != 'true' }}
+      name: Change permission of docker directory to create cache services
+      timeout-minutes: 2
+      run: |
+        sudo chmod -R 777 /var/lib/docker/image
