@@ -63,6 +63,6 @@ jobs:
       run: |
         mkdir ~/stack-images
         cd ~/stack-images
-        docker save confluentinc/cp-zookeeper | tar -cfz --null zookeeper.tgz
-        docker save confluentinc/cp-kafka | tar -cfz --null kafka.tgz
-        docker save confluentinc/cp-schema-registry | tar -cfz --null schema-registry.tgz
+        docker save confluentinc/cp-zookeeper | tar -cfz zookeeper.tgz --null
+        docker save confluentinc/cp-kafka | tar -cfz kafka.tgz --null
+        docker save confluentinc/cp-schema-registry | tar -cfz schema-registry.tgz --null
