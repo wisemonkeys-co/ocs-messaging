@@ -56,13 +56,13 @@ jobs:
         else
           echo "Nothing to publish";
         fi
-    # Store images to cache
+    # Store images on cache
     - if: ${{ steps.cache-docker.outputs.cache-hit != 'true' }}
       name: Export stack images
       timeout-minutes: 5
       run: |
         mkdir ~/stack-images
         cd ~/stack-images
-        docker save confluentinc/cp-zookeeper | tar -cfz zookeeper.tgz --null
-        docker save confluentinc/cp-kafka | tar -cfz kafka.tgz --null
-        docker save confluentinc/cp-schema-registry | tar -cfz schema-registry.tgz --null
+        docker save confluentinc/cp-zookeeper | gzip -9 > zookeeper.tgz
+        docker save confluentinc/cp-kafka | gzip -9 > kafka.tgz
+        docker save confluentinc/cp-schema-registry | gzip -9 > schema-registry.tgz
