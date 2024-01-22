@@ -34,7 +34,7 @@ jobs:
         cache-name: cache-services
       with:
         path: |
-          /var/lib/docker/image
+          /var/lib/docker
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
 
     - name: Build stack
@@ -58,4 +58,4 @@ jobs:
       name: Change permission of docker directory to create cache services
       timeout-minutes: 2
       run: |
-        sudo chmod -R 777 /var/lib/docker/image
+        sudo chmod -R 777 /var/lib/docker
