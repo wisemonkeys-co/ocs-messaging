@@ -22,25 +22,23 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    
-    - name: Change permission of docker directory to restore cache services
-      timeout-minutes: 2
-      run: |
-        sudo systemctl stop docker
-        sudo chmod -R 777 /var/lib/docker
-    - name: Cache services
+
+    - name: Cache stack images
       id: cache-docker
       uses: actions/cache@v3
       env:
         cache-name: cache-services
       with:
         path: |
-          /var/lib/docker
+          ~/stack-images
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
-    - name: Restart docker
-      timeout-minutes: 2
+    - if: ${{ steps.cache-docker.outputs.cache-hit == 'true' }}
+      name: Import stack images
+      timeout-minutes: 5
       run: |
-        sudo systemctl start docker
+        docker load < ~/stack-images/zookeeper.tar
+        docker load < ~/stack-images/kafka.tar
+        docker load < ~/stack-images/schema-registry.tar
 
     - name: Build stack
       run: docker-compose -f stack-docker-compose.yml up -d
@@ -60,8 +58,11 @@ jobs:
         fi
 
     - if: ${{ steps.cache-docker.outputs.cache-hit != 'true' }}
-      name: Change permission of docker directory to create cache services
-      timeout-minutes: 2
+      name: Export stack images
+      timeout-minutes: 5
       run: |
-        sudo systemctl stop docker
-        sudo chmod -R 777 /var/lib/docker
+        mkdir ~/stack-images
+        cd ~/stack-images
+        docker save --output="zookeeper.tar" confluentinc/cp-zookeeper
+        docker save --output="kafka.tar" confluentinc/cp-kafka
+        docker save --output="schema-registry.tar" confluentinc/cp-schema-registry
