@@ -22,7 +22,7 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-
+    # Define cache
     - name: Cache stack images
       id: cache-docker
       uses: actions/cache@v3
@@ -32,14 +32,14 @@ jobs:
         path: |
           ~/stack-images
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
+    # Load images from cache
     - if: ${{ steps.cache-docker.outputs.cache-hit == 'true' }}
       name: Import stack images
       timeout-minutes: 5
       run: |
-        docker load < ~/stack-images/zookeeper.tar
-        docker load < ~/stack-images/kafka.tar
-        docker load < ~/stack-images/schema-registry.tar
-
+        docker image load < ~/stack-images/zookeeper.tgz
+        docker image load < ~/stack-images/kafka.tgz
+        docker image load < ~/stack-images/schema-registry.tgz
     - name: Build stack
       run: docker-compose -f stack-docker-compose.yml up -d
     - name: Run tests
@@ -56,13 +56,13 @@ jobs:
         else
           echo "Nothing to publish";
         fi
-
+    # Store images to cache
     - if: ${{ steps.cache-docker.outputs.cache-hit != 'true' }}
       name: Export stack images
       timeout-minutes: 5
       run: |
         mkdir ~/stack-images
         cd ~/stack-images
-        docker save --output="zookeeper.tar" confluentinc/cp-zookeeper
-        docker save --output="kafka.tar" confluentinc/cp-kafka
-        docker save --output="schema-registry.tar" confluentinc/cp-schema-registry
+        docker save confluentinc/cp-zookeeper | tar -cfz zookeeper.tgz
+        docker save confluentinc/cp-kafka | tar -cfz kafka.tgz
+        docker save confluentinc/cp-schema-registry | tar -cfz schema-registry.tgz
