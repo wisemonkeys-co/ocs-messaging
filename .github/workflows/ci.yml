@@ -26,6 +26,7 @@ jobs:
     - name: Change permission of docker directory to restore cache services
       timeout-minutes: 2
       run: |
+        sudo systemctl stop docker
         sudo chmod -R 777 /var/lib/docker
     - name: Cache services
       id: cache-docker
@@ -36,6 +37,10 @@ jobs:
         path: |
           /var/lib/docker
         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
+    - name: Restart docker
+      timeout-minutes: 2
+      run: |
+        sudo systemctl start docker
 
     - name: Build stack
       run: docker-compose -f stack-docker-compose.yml up -d
@@ -58,4 +63,5 @@ jobs:
       name: Change permission of docker directory to create cache services
       timeout-minutes: 2
       run: |
+        sudo systemctl stop docker
         sudo chmod -R 777 /var/lib/docker
