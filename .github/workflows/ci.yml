@@ -47,8 +47,8 @@ jobs:
         git fetch origin
         CURRENT_TAG=$(git tag -l | grep "$TAG");
         if [[ -z "$CURRENT_TAG" ]]; then
-          # git tag $TAG;
-          # git push origin $TAG;
+          git tag $TAG;
+          git push origin $TAG;
           echo 'Version '"$TAG"' published'
         else
           echo "Nothing to publish";
