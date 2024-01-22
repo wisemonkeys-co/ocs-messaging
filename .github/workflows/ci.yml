@@ -13,7 +13,6 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21.x'
-
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
@@ -23,16 +22,20 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    # - name: Cache services
-    #   id: cache-docker
-    #   uses: actions/cache@v3
-    #   env:
-    #     cache-name: cache-services
-    #   with:
-    #     path: |
-    #       /var/lib/docker/image
-    #       /var/lib/docker/containers
-    #     key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
+    
+    - name: Change permission of docker directory to cache services
+      timeout-minutes: 2
+      run: |
+        sudo chmod +rw /var/lib/docker/image
+    - name: Cache services
+      id: cache-docker
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-services
+      with:
+        path: |
+          /var/lib/docker/image
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
 
     - name: Build stack
       run: docker-compose -f stack-docker-compose.yml up -d
