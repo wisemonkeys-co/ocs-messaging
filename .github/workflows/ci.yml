@@ -26,7 +26,7 @@ jobs:
     - name: Change permission of docker directory to cache services
       timeout-minutes: 2
       run: |
-        sudo chmod +rw /var/lib/docker/image
+        sudo chmod -R a=+rwX /var/lib/docker
     - name: Cache services
       id: cache-docker
       uses: actions/cache@v3
