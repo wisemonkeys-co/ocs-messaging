@@ -7,3 +7,13 @@ type LogEvent struct {
 	Tag          string
 	Message      string
 }
+
+// EventReport - data structure that represents the event's delivery report
+type EventReport struct {
+	TopicName string
+	Offset    int
+	Partition int
+	Key       []byte
+	Value     []byte
+	ErrorData error
+}
