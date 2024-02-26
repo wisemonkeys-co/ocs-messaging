@@ -10,6 +10,7 @@ import (
 	loghandler "github.com/wisemonkeys-co/ocs-messaging/log-handler"
 	schemavalidator "github.com/wisemonkeys-co/ocs-messaging/schema-validator"
 	"github.com/wisemonkeys-co/ocs-messaging/types"
+	"github.com/wisemonkeys-co/ocs-messaging/utils"
 )
 
 var flushTimeout time.Duration
@@ -120,30 +121,15 @@ func (kp *KafkaProducer) StopProducer() {
 
 func (kp *KafkaProducer) buildKafkaConfigMap(config map[string]interface{}) (kafka.ConfigMap, error) {
 	kafkaConfigMap := kafka.ConfigMap{}
-	var strContainer string
-	var ok bool
-	strContainer, ok = config["bootstrap.servers"].(string)
-	if !ok || strContainer == "" {
-		return nil, errors.New("missing required property \"bootstrap.server\"")
-	}
-	kafkaConfigMap["bootstrap.servers"] = strContainer
-	strContainer, ok = config["security.protocol"].(string)
-	if ok {
-		if strContainer == "SASL_SSL" {
-			kafkaConfigMap["security.protocol"] = strContainer
-			kafkaConfigMap["sasl.mechanism"] = "PLAIN"
-			strContainer, ok = config["sasl.username"].(string)
-			if !ok || strContainer == "" {
-				return nil, errors.New("missing required property \"sasl.username\" (due to \"security.protocol\" as SASL_SSL)")
+	var err error
+	for k, value := range config {
+		if utils.ProducerHandlerMap[k] != nil {
+			err = utils.ProducerHandlerMap[k](config, &kafkaConfigMap)
+			if err != nil {
+				return nil, err
 			}
-			kafkaConfigMap["sasl.username"] = strContainer
-			strContainer, ok = config["sasl.password"].(string)
-			if !ok || strContainer == "" {
-				return nil, errors.New("missing required property \"sasl.password\" (due to \"security.protocol\" as SASL_SSL)")
-			}
-			kafkaConfigMap["sasl.password"] = strContainer
-		} else if strContainer != "" {
-			kafkaConfigMap["security.protocol"] = strContainer
+		} else {
+			kafkaConfigMap[k] = value
 		}
 	}
 	environment := os.Getenv("ENVIRONMENT")
