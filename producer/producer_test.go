@@ -20,7 +20,10 @@ var topicName string
 var msv testutils.MockSchemaValidator
 var consumer *kafka.Consumer
 var syncProducer KafkaProducer
+<<<<<<< HEAD
 var idempotentProducer KafkaProducer
+=======
+>>>>>>> kafka-v2
 var asyncProducer KafkaProducer
 var deliveryReportChan chan types.EventReport
 
@@ -89,6 +92,7 @@ func TestSendMessageWithoutKey(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 func TestSendMessageWithIdempotentConfig(t *testing.T) {
 	defer msv.FlushEncodeReturnList()
 	value := "value"
@@ -121,6 +125,8 @@ func TestSendMessageWithIdempotentConfig(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> kafka-v2
 func TestSendMessageAsyncModeSuccess(t *testing.T) {
 	defer msv.FlushEncodeReturnList()
 	eventDataList := []struct {
