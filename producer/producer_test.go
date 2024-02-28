@@ -20,6 +20,7 @@ var topicName string
 var msv testutils.MockSchemaValidator
 var consumer *kafka.Consumer
 var syncProducer KafkaProducer
+var idempotentProducer KafkaProducer
 var asyncProducer KafkaProducer
 var deliveryReportChan chan types.EventReport
 
@@ -62,6 +63,38 @@ func TestSendMessageWithoutKey(t *testing.T) {
 	valueSchemaId := 6
 	msv.SetReturnedValue([]byte{0, 0, 0, 0, 6, 118, 97, 108, 117, 101}, nil) // "value"
 	sendMessageError := syncProducer.SendSchemaBasedMessage(topicName, nil, []byte(value), 0, valueSchemaId)
+	if sendMessageError != nil {
+		t.Error(sendMessageError)
+		return
+	}
+	timeout, _ := time.ParseDuration("5s")
+	message, consumerError := consumer.ReadMessage(timeout)
+	if consumerError != nil {
+		t.Error(consumerError)
+		return
+	}
+	if message.Key != nil {
+		t.Errorf("The key should not be defined")
+		return
+	}
+	consumedValueSchemaId := binary.BigEndian.Uint32(message.Value[1:5])
+	if int(consumedValueSchemaId) != valueSchemaId {
+		t.Errorf("Error on write schema ids")
+		return
+	}
+	consumedValue := string(message.Value[5:])
+	if consumedValue != value {
+		t.Errorf("Error on write data")
+		return
+	}
+}
+
+func TestSendMessageWithIdempotentConfig(t *testing.T) {
+	defer msv.FlushEncodeReturnList()
+	value := "value"
+	valueSchemaId := 6
+	msv.SetReturnedValue([]byte{0, 0, 0, 0, 6, 118, 97, 108, 117, 101}, nil) // "value"
+	sendMessageError := idempotentProducer.SendSchemaBasedMessage(topicName, nil, []byte(value), 0, valueSchemaId)
 	if sendMessageError != nil {
 		t.Error(sendMessageError)
 		return
@@ -238,6 +271,13 @@ func TestMain(m *testing.M) {
 	err = asyncProducer.Init(producerConfig, &msv, logChannel)
 	if err != nil {
 		fmt.Printf("Error on async producer init: %v", err)
+		os.Exit(1)
+	}
+	idempotentProducer = KafkaProducer{}
+	producerConfig["enable.idempotence"] = true
+	err = idempotentProducer.Init(producerConfig, &msv, logChannel)
+	if err != nil {
+		fmt.Printf("Error on idempotent producer init: %v", err)
 		os.Exit(1)
 	}
 	deliveryReportChan = make(chan types.EventReport, 10)
