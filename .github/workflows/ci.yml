@@ -1,7 +1,7 @@
 name: CI Stage
 on: [push]
 env:
-  TAG: v0.0.4-beta.1
+  TAG: v0.0.4-beta.2
 jobs:
   build:
     name: CI
