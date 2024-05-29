@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	testutils "github.com/wisemonkeys-co/ocs-messaging/test-utils"
 	"github.com/wisemonkeys-co/ocs-messaging/types"
 )
@@ -43,7 +43,7 @@ func TestConsumeMessage(t *testing.T) {
 		}
 		done <- true
 	}()
-	producer.Produce(&kafka.Message{
+	e := producer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topicName,
 			Partition: kafka.PartitionAny,
@@ -51,6 +51,7 @@ func TestConsumeMessage(t *testing.T) {
 		Key:   key,
 		Value: value,
 	}, nil)
+	fmt.Println(e)
 	producer.Flush(3000)
 	<-done
 	if consumeErrorData != nil {
@@ -81,6 +82,12 @@ func TestMain(m *testing.M) {
 	consumer = &KafkaConsumer{}
 	messageChannel = make(chan SimpleMessage)
 	logChannel = make(chan types.LogEvent)
+	go func() {
+		for {
+			log := <-logChannel
+			fmt.Println(log)
+		}
+	}()
 	topicList := []string{topicName}
 	consumer.StartConsumer(config, topicList, messageChannel, logChannel)
 	exitCode := m.Run()

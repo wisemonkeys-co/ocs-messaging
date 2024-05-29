@@ -6,19 +6,23 @@ import (
 	"os"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	loghandler "github.com/wisemonkeys-co/ocs-messaging/log-handler"
 	schemavalidator "github.com/wisemonkeys-co/ocs-messaging/schema-validator"
 	"github.com/wisemonkeys-co/ocs-messaging/types"
+	"github.com/wisemonkeys-co/ocs-messaging/utils"
 )
 
 var flushTimeout time.Duration
 
 type KafkaProducer struct {
+	AsyncModeChanSize  int
 	schemavalidator    schemavalidator.SchemaValidator
 	kafkaProducer      *kafka.Producer
 	shutdownInProgress bool
 	logHandler         loghandler.LogHandler
+	asyncModeChan      chan kafka.Event
+	deliveryReportChan chan<- types.EventReport
 }
 
 func (kp *KafkaProducer) Init(config map[string]interface{}, schemavalidator schemavalidator.SchemaValidator, logsChannel chan<- types.LogEvent) error {
@@ -44,39 +48,28 @@ func (kp *KafkaProducer) Init(config map[string]interface{}, schemavalidator sch
 }
 
 func (kp *KafkaProducer) SendSchemaBasedMessage(topicName string, key, value any, keySchemaId, valueSchemaId int) error {
-	var err error
-	if kp.kafkaProducer == nil {
-		return errors.New("the producer was not defined")
-	}
-	if kp.shutdownInProgress {
-		return errors.New("shutdown in progress")
-	}
-	if kp.schemavalidator == nil {
-		return errors.New("the schema validator interface is not defined")
-	}
-	var keyWithSchemaId, valueWithSchemaId []byte
-	if key != nil {
-		//keyWithSchemaId, err = kp.buildMessageBuffer(key, keySchemaId)
-		keyWithSchemaId, err = kp.schemavalidator.Encode(keySchemaId, key)
-		if err != nil {
-			return err
-		}
-	}
-	//valueWithSchemaId, err = kp.buildMessageBuffer(value, valueSchemaId)
-	valueWithSchemaId, err = kp.schemavalidator.Encode(valueSchemaId, value)
+	keyWithSchemaId, valueWithSchemaId, err := kp.encodeMessageData(key, value, keySchemaId, valueSchemaId)
 	if err != nil {
 		return err
 	}
-	kafkaMessage := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &topicName,
-			Partition: kafka.PartitionAny,
-		},
-		Key:   keyWithSchemaId,
-		Value: valueWithSchemaId,
+	return kp.SendRawData(topicName, keyWithSchemaId, valueWithSchemaId)
+}
+
+func (kp *KafkaProducer) SendRawData(topicName string, key, value []byte) error {
+	ok, err := kp.isReady()
+	if !ok {
+		return err
 	}
-	kp.kafkaProducer.Produce(kafkaMessage, nil)
-	producerEvent := <-kp.kafkaProducer.Events()
+	if kp.deliveryReportChan != nil && kp.asyncModeChan != nil {
+		err = kp.sendMessage(topicName, key, value, kp.asyncModeChan)
+		return err
+	}
+	deliveryChan := make(chan kafka.Event, 1)
+	err = kp.sendMessage(topicName, key, value, deliveryChan)
+	if err != nil {
+		return err
+	}
+	producerEvent := <-deliveryChan
 	switch ev := producerEvent.(type) {
 	case *kafka.Message:
 		if ev.TopicPartition.Error != nil {
@@ -88,33 +81,35 @@ func (kp *KafkaProducer) SendSchemaBasedMessage(topicName string, key, value any
 	return err
 }
 
-func (kp *KafkaProducer) SendRawData(topicName string, key, value []byte) error {
-	var err error
-	if kp.kafkaProducer == nil {
-		return errors.New("the producer was not defined")
+func (kp *KafkaProducer) SetAsyncMode(deliveryReportChan chan<- types.EventReport) error {
+	if deliveryReportChan == nil {
+		return errors.New("the delivery channel report must be defined")
 	}
-	if kp.shutdownInProgress {
-		return errors.New("shutdown in progress")
+	if kp.AsyncModeChanSize <= 0 {
+		kp.AsyncModeChanSize = 100
 	}
-	kafkaMessage := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{
-			Topic:     &topicName,
-			Partition: kafka.PartitionAny,
-		},
-		Key:   key,
-		Value: value,
-	}
-	kp.kafkaProducer.Produce(kafkaMessage, nil)
-	producerEvent := <-kp.kafkaProducer.Events()
-	switch ev := producerEvent.(type) {
-	case *kafka.Message:
-		if ev.TopicPartition.Error != nil {
-			err = fmt.Errorf("error on send message key %s, value %s to %v", string(ev.Key), string(ev.Value), ev.TopicPartition)
+	kp.asyncModeChan = make(chan kafka.Event, kp.AsyncModeChanSize)
+	kp.deliveryReportChan = deliveryReportChan
+	go func() {
+		for isRunning, _ := kp.isReady(); isRunning || len(kp.asyncModeChan) > 0; isRunning, _ = kp.isReady() {
+			producerEvent := <-kp.asyncModeChan
+			ev, ok := producerEvent.(*kafka.Message)
+			if ok {
+				eventReport := types.EventReport{
+					TopicName: *ev.TopicPartition.Topic,
+					Key:       ev.Key,
+					Value:     ev.Value,
+					Offset:    int(ev.TopicPartition.Offset),
+					Partition: int(ev.TopicPartition.Partition),
+				}
+				if ev.TopicPartition.Error != nil {
+					eventReport.ErrorData = ev.TopicPartition.Error
+				}
+				kp.deliveryReportChan <- eventReport
+			}
 		}
-	default:
-		err = nil
-	}
-	return err
+	}()
+	return nil
 }
 
 func (kp *KafkaProducer) StopProducer() {
@@ -126,30 +121,15 @@ func (kp *KafkaProducer) StopProducer() {
 
 func (kp *KafkaProducer) buildKafkaConfigMap(config map[string]interface{}) (kafka.ConfigMap, error) {
 	kafkaConfigMap := kafka.ConfigMap{}
-	var strContainer string
-	var ok bool
-	strContainer, ok = config["bootstrap.servers"].(string)
-	if !ok || strContainer == "" {
-		return nil, errors.New("missing required property \"bootstrap.server\"")
-	}
-	kafkaConfigMap["bootstrap.servers"] = strContainer
-	strContainer, ok = config["security.protocol"].(string)
-	if ok {
-		if strContainer == "SASL_SSL" {
-			kafkaConfigMap["security.protocol"] = strContainer
-			kafkaConfigMap["sasl.mechanism"] = "PLAIN"
-			strContainer, ok = config["sasl.username"].(string)
-			if !ok || strContainer == "" {
-				return nil, errors.New("missing required property \"sasl.username\" (due to \"security.protocol\" as SASL_SSL)")
+	var err error
+	for k, value := range config {
+		if utils.ProducerHandlerMap[k] != nil {
+			err = utils.ProducerHandlerMap[k](config, &kafkaConfigMap)
+			if err != nil {
+				return nil, err
 			}
-			kafkaConfigMap["sasl.username"] = strContainer
-			strContainer, ok = config["sasl.password"].(string)
-			if !ok || strContainer == "" {
-				return nil, errors.New("missing required property \"sasl.password\" (due to \"security.protocol\" as SASL_SSL)")
-			}
-			kafkaConfigMap["sasl.password"] = strContainer
-		} else if strContainer != "" {
-			kafkaConfigMap["security.protocol"] = strContainer
+		} else {
+			kafkaConfigMap[k] = value
 		}
 	}
 	environment := os.Getenv("ENVIRONMENT")
@@ -158,4 +138,41 @@ func (kp *KafkaProducer) buildKafkaConfigMap(config map[string]interface{}) (kaf
 	}
 	kafkaConfigMap["go.logs.channel.enable"] = true
 	return kafkaConfigMap, nil
+}
+
+func (kp *KafkaProducer) isReady() (bool, error) {
+	if kp.kafkaProducer == nil {
+		return false, errors.New("the producer was not defined")
+	}
+	if kp.shutdownInProgress {
+		return false, errors.New("shutdown in progress")
+	}
+	return true, nil
+}
+
+func (kp *KafkaProducer) encodeMessageData(key, value any, keySchemaId, valueSchemaId int) (keyWithSchemaId, valueWithSchemaId []byte, err error) {
+	if kp.schemavalidator == nil {
+		err = errors.New("the schema validator interface is not defined")
+		return
+	}
+	if key != nil {
+		keyWithSchemaId, err = kp.schemavalidator.Encode(keySchemaId, key)
+		if err != nil {
+			return
+		}
+	}
+	valueWithSchemaId, err = kp.schemavalidator.Encode(valueSchemaId, value)
+	return
+}
+
+func (kp *KafkaProducer) sendMessage(topicName string, key, value []byte, deliveryChan chan kafka.Event) error {
+	kafkaMessage := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{
+			Topic:     &topicName,
+			Partition: kafka.PartitionAny,
+		},
+		Key:   key,
+		Value: value,
+	}
+	return kp.kafkaProducer.Produce(kafkaMessage, deliveryChan)
 }

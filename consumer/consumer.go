@@ -5,9 +5,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	loghandler "github.com/wisemonkeys-co/ocs-messaging/log-handler"
 	"github.com/wisemonkeys-co/ocs-messaging/types"
+	"github.com/wisemonkeys-co/ocs-messaging/utils"
 )
 
 var readTimeout time.Duration
@@ -107,39 +108,15 @@ func (kc *KafkaConsumer) StopConsumer() {
 
 func (kc *KafkaConsumer) buildKafkaConfigMap(config map[string]interface{}) (kafka.ConfigMap, error) {
 	kafkaConfigMap := kafka.ConfigMap{}
-	var strContainer string
-	var ok bool
-	strContainer, ok = config["bootstrap.servers"].(string)
-	if !ok || strContainer == "" {
-		return nil, errors.New("missing required property \"bootstrap.server\"")
-	}
-	kafkaConfigMap["bootstrap.servers"] = strContainer
-	strContainer, ok = config["group.id"].(string)
-	if !ok || strContainer == "" {
-		return nil, errors.New("missing required property \"group.id\"")
-	}
-	kafkaConfigMap["group.id"] = strContainer
-	strContainer, ok = config["auto.offset.reset"].(string)
-	if ok || strContainer != "" {
-		kafkaConfigMap["auto.offset.reset"] = strContainer
-	}
-	strContainer, ok = config["security.protocol"].(string)
-	if ok {
-		if strContainer == "SASL_SSL" {
-			kafkaConfigMap["security.protocol"] = strContainer
-			kafkaConfigMap["sasl.mechanism"] = "PLAIN"
-			strContainer, ok = config["sasl.username"].(string)
-			if !ok || strContainer == "" {
-				return nil, errors.New("missing required property \"sasl.username\" (due to \"security.protocol\" as SASL_SSL)")
+	var err error
+	for k, value := range config {
+		if utils.ConsumerHandlerMap[k] != nil {
+			err = utils.ConsumerHandlerMap[k](config, &kafkaConfigMap)
+			if err != nil {
+				return nil, err
 			}
-			kafkaConfigMap["sasl.username"] = strContainer
-			strContainer, ok = config["sasl.password"].(string)
-			if !ok || strContainer == "" {
-				return nil, errors.New("missing required property \"sasl.password\" (due to \"security.protocol\" as SASL_SSL)")
-			}
-			kafkaConfigMap["sasl.password"] = strContainer
-		} else if strContainer != "" {
-			kafkaConfigMap["security.protocol"] = strContainer
+		} else {
+			kafkaConfigMap[k] = value
 		}
 	}
 	environment := os.Getenv("ENVIRONMENT")
