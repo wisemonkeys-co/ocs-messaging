@@ -2,8 +2,12 @@ package consumer
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"time"
+
+	kafkatrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/confluentinc/confluent-kafka-go/kafka.v2"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	loghandler "github.com/wisemonkeys-co/ocs-messaging/log-handler"
@@ -13,23 +17,15 @@ import (
 
 var readTimeout time.Duration
 
-type SimpleMessage struct {
-	Key       []byte
-	Value     []byte
-	Topic     string
-	Offset    int64
-	Partition int32
-}
-
 type KafkaConsumer struct {
-	kafkaConsumer      *kafka.Consumer
-	messageChannel     chan<- SimpleMessage
+	kafkaConsumer      *kafkatrace.Consumer
+	messageChannel     chan<- types.SimpleMessage
 	shutdownInProgress bool
 	logHandler         loghandler.LogHandler
 	safeShutdown       chan int
 }
 
-func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList []string, messageChannel chan<- SimpleMessage, logChannel chan<- types.LogEvent) error {
+func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList []string, messageChannel chan<- types.SimpleMessage, logChannel chan<- types.LogEvent) error {
 	if messageChannel == nil {
 		return errors.New("missing required channels")
 	}
@@ -40,7 +36,7 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 	if startConsumerError != nil {
 		return startConsumerError
 	}
-	kc.kafkaConsumer, startConsumerError = kafka.NewConsumer(&consumerConfigMap)
+	kc.kafkaConsumer, startConsumerError = kafkatrace.NewConsumer(&consumerConfigMap)
 	if startConsumerError != nil {
 		return startConsumerError
 	}
@@ -81,7 +77,14 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 				}
 				continue
 			}
-			kc.messageChannel <- SimpleMessage{
+			carrier := kafkatrace.NewMessageCarrier(msg)
+			spanContext, err := tracer.Extract(carrier)
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Println(spanContext)
+			}
+			kc.messageChannel <- types.SimpleMessage{
 				Key:       msg.Key,
 				Value:     msg.Value,
 				Topic:     *msg.TopicPartition.Topic,

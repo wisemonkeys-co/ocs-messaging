@@ -17,3 +17,11 @@ type EventReport struct {
 	Value     []byte
 	ErrorData error
 }
+
+type SimpleMessage struct {
+	Key       []byte
+	Value     []byte
+	Topic     string
+	Offset    int64
+	Partition int32
+}
