@@ -11,6 +11,7 @@ import (
 	schemavalidator "github.com/wisemonkeys-co/ocs-messaging/schema-validator"
 	"github.com/wisemonkeys-co/ocs-messaging/types"
 	"github.com/wisemonkeys-co/ocs-messaging/utils"
+	kafkatrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/confluentinc/confluent-kafka-go/kafka.v2"
 )
 
 var flushTimeout time.Duration
@@ -19,6 +20,7 @@ type KafkaProducer struct {
 	AsyncModeChanSize  int
 	schemavalidator    schemavalidator.SchemaValidator
 	kafkaProducer      *kafka.Producer
+	wrappedProducer    *kafkatrace.Producer
 	shutdownInProgress bool
 	logHandler         loghandler.LogHandler
 	asyncModeChan      chan kafka.Event
@@ -35,6 +37,7 @@ func (kp *KafkaProducer) Init(config map[string]interface{}, schemavalidator sch
 		return err
 	}
 	kp.kafkaProducer, err = kafka.NewProducer(&configMap)
+	kp.wrappedProducer = kafkatrace.WrapProducer(kp.kafkaProducer)
 	if err != nil {
 		return err
 	}
@@ -116,7 +119,7 @@ func (kp *KafkaProducer) StopProducer() {
 	kp.shutdownInProgress = true
 	flushTimeout, _ = time.ParseDuration("3s")
 	kp.kafkaProducer.Flush(int(flushTimeout.Milliseconds()))
-	kp.kafkaProducer.Close()
+	kp.wrappedProducer.Close()
 }
 
 func (kp *KafkaProducer) buildKafkaConfigMap(config map[string]interface{}) (kafka.ConfigMap, error) {
@@ -174,5 +177,5 @@ func (kp *KafkaProducer) sendMessage(topicName string, key, value []byte, delive
 		Key:   key,
 		Value: value,
 	}
-	return kp.kafkaProducer.Produce(kafkaMessage, deliveryChan)
+	return kp.wrappedProducer.Produce(kafkaMessage, deliveryChan)
 }
