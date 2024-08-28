@@ -40,7 +40,7 @@ jobs:
       #     docker image load < ~/stack-images/kafka.tgz
       #     docker image load < ~/stack-images/schema-registry.tgz
       - name: Build stack
-        run: docker-compose -f stack-docker-compose.yml up -d
+        run: docker compose -f stack-docker-compose.yml up -d
       - name: Run tests
         run: go test ./...
       - name: Publish version
