@@ -2,6 +2,7 @@ package schemavalidator
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 
 	"github.com/riferrei/srclient"
@@ -15,8 +16,8 @@ import (
 //
 // * Data serialization and desserialization in the schema-registry pattern ([0] MagicByte, [1:5] Schema id, [6:] Payload)
 type SchemaRegistryValidator struct {
-	srClient             *srclient.SchemaRegistryClient
-	schemaTypeHandlerMap map[string]schemaTypeHandlerInterface
+	srClient                     *srclient.SchemaRegistryClient
+	schemaTypeExternalHandlerMap map[string]schemaTypeHandlerInterface
 }
 
 // Init setup the instance
@@ -25,13 +26,13 @@ func (sv *SchemaRegistryValidator) Init(url, key, secret string) {
 	if key != "" && secret != "" {
 		sv.srClient.SetCredentials(key, secret)
 	}
-	sv.setupSchemaTypeHandlerMap()
+	sv.setupSchemaTypeExternalHandlerMap()
 }
 
-func (sv *SchemaRegistryValidator) setupSchemaTypeHandlerMap() {
-	sv.schemaTypeHandlerMap = make(map[string]schemaTypeHandlerInterface)
-	sv.schemaTypeHandlerMap[srclient.Json.String()] = &JsonSchemaValidator{}
-	for _, sth := range sv.schemaTypeHandlerMap {
+func (sv *SchemaRegistryValidator) setupSchemaTypeExternalHandlerMap() {
+	sv.schemaTypeExternalHandlerMap = make(map[string]schemaTypeHandlerInterface)
+	sv.schemaTypeExternalHandlerMap[srclient.Json.String()] = &JsonSchemaValidator{}
+	for _, sth := range sv.schemaTypeExternalHandlerMap {
 		sth.init()
 	}
 }
@@ -59,8 +60,19 @@ func (sv *SchemaRegistryValidator) Decode(data []byte, v any) error {
 		return err
 	}
 	schemaType := schema.SchemaType().String()
-	if sv.schemaTypeHandlerMap[schemaType] != nil {
-		err = sv.schemaTypeHandlerMap[schemaType].decode(data[5:], schema, v)
+	if schemaType == srclient.Avro.String() {
+		native, _, err := schema.Codec().NativeFromBinary(data[5:])
+		if err != nil {
+			return err
+		}
+		value, err := schema.Codec().TextualFromNative(nil, native)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(value, v)
+	}
+	if sv.schemaTypeExternalHandlerMap[schemaType] != nil {
+		err = sv.schemaTypeExternalHandlerMap[schemaType].decode(data[5:], schema, v)
 		return err
 	}
 	return fmt.Errorf("decoder type %s not implemented", schemaType)
@@ -82,8 +94,23 @@ func (sv *SchemaRegistryValidator) Encode(schemaID int, data any) (payload []byt
 		return
 	}
 	schemaType := schema.SchemaType().String()
-	if sv.schemaTypeHandlerMap[schemaType] != nil {
-		payload, err = sv.schemaTypeHandlerMap[schemaType].encode(data, schema)
+	if schemaType == srclient.Avro.String() {
+		value, _ := json.Marshal(data)
+		var native any
+		native, _, err = schema.Codec().NativeFromTextual(value)
+		if err != nil {
+			return
+		}
+		var valueBytes []byte
+		valueBytes, err = schema.Codec().BinaryFromNative(nil, native)
+		if err != nil {
+			return
+		}
+		payload = sv.buildPayloadBuffer(uint32(schemaID), valueBytes)
+		return
+	}
+	if sv.schemaTypeExternalHandlerMap[schemaType] != nil {
+		payload, err = sv.schemaTypeExternalHandlerMap[schemaType].encode(data, schema)
 		if err != nil {
 			return
 		}
