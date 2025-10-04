@@ -13,23 +13,15 @@ import (
 
 var readTimeout time.Duration
 
-type SimpleMessage struct {
-	Key       []byte
-	Value     []byte
-	Topic     string
-	Offset    int64
-	Partition int32
-}
-
 type KafkaConsumer struct {
 	kafkaConsumer      *kafka.Consumer
-	messageChannel     chan<- SimpleMessage
+	messageChannel     chan<- types.SimpleMessage
 	shutdownInProgress bool
 	logHandler         loghandler.LogHandler
 	safeShutdown       chan int
 }
 
-func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList []string, messageChannel chan<- SimpleMessage, logChannel chan<- types.LogEvent) error {
+func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList []string, messageChannel chan<- types.SimpleMessage, logChannel chan<- types.LogEvent) error {
 	if messageChannel == nil {
 		return errors.New("missing required channels")
 	}
@@ -81,7 +73,7 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 				}
 				continue
 			}
-			kc.messageChannel <- SimpleMessage{
+			kc.messageChannel <- types.SimpleMessage{
 				Key:       msg.Key,
 				Value:     msg.Value,
 				Topic:     *msg.TopicPartition.Topic,

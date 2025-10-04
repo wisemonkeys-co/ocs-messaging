@@ -13,7 +13,7 @@ import (
 )
 
 var consumer *KafkaConsumer
-var messageChannel chan SimpleMessage
+var messageChannel chan types.SimpleMessage
 var logChannel chan types.LogEvent
 var producer *kafka.Producer
 var topicName string
@@ -80,7 +80,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	consumer = &KafkaConsumer{}
-	messageChannel = make(chan SimpleMessage)
+	messageChannel = make(chan types.SimpleMessage)
 	logChannel = make(chan types.LogEvent)
 	go func() {
 		for {

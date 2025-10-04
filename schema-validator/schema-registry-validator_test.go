@@ -16,6 +16,7 @@ import (
 var jsonSchemaTypeString string = `{"title":"String Schema","description":"Schema 2 test","type":"string","pattern":"^[0-9a-fA-F]{24}$"}`
 var jsonSchemaTypeNumber string = `{"title":"Number Schema","description":"Schema 2 test","type":"number","minimum": 3.14,"exclusiveMaximum": 3.15}`
 var jsonSchemaTypeObject string = `{"title":"Object Schema","type":"object","required":["foo"],"properties":{"foo":{"type":"string"},"bar":{"type":"number"}}}`
+var avroSchema string = `{"type":"record","name":"ComplexType","namespace":"com.foo.bar.sunda","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`
 var schemaValidator SchemaRegistryValidator
 
 func TestDecodeJsonObjectData(t *testing.T) {
@@ -192,6 +193,55 @@ func TestNotImplementedHandler(t *testing.T) {
 	}
 }
 
+func TestDecodeObjectWitAvroSchema(t *testing.T) {
+	t.Log("TestDecodeObjectWitAvroSchema")
+	var complexObject struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	data := []byte{
+		0,          // magic byte
+		0, 0, 0, 4, // schema id
+		2, 12, 71, 111, 112, 104, 101, 114, // {"id":1,"name":"Gopher"}
+	}
+	errorValidate := schemaValidator.Decode(data, &complexObject)
+	if errorValidate != nil {
+		t.Error(errorValidate)
+		return
+	}
+	if complexObject.ID != 1 {
+		t.Errorf("unexpected id value (got %d)", complexObject.ID)
+		return
+	}
+	if complexObject.Name != "Gopher" {
+		t.Errorf("unexpected name value (got %s)", complexObject.Name)
+		return
+	}
+}
+
+func TestEncodeObjectWitAvroSchema(t *testing.T) {
+	t.Log("TestEncodeObjectWitAvroSchema")
+	var complexObject struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	complexObject.ID = 9
+	complexObject.Name = "Akaxike"
+	payload, encodeError := schemaValidator.Encode(4, complexObject)
+	if encodeError != nil {
+		t.Error(encodeError)
+		return
+	}
+	if payload == nil {
+		t.Errorf("unexpected nil payload")
+		return
+	}
+	if string(payload[5:]) != string([]byte{18, 14, 65, 107, 97, 120, 105, 107, 101}) {
+		t.Errorf("unexpected array for payload value")
+		return
+	}
+}
+
 func TestMain(m *testing.M) {
 	srKey := "O=='='"
 	srPass := "p455wºrd"
@@ -231,6 +281,11 @@ func TestMain(m *testing.M) {
 			schema = jsonSchemaTypeNumber
 			subject = "schema-type-number"
 			schemaType = "JSON"
+		case "4":
+			id = 4
+			schema = avroSchema
+			subject = "avro-object"
+			schemaType = "AVRO"
 		default:
 			id = 999
 			schema = `{}`
