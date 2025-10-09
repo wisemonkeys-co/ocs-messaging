@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -188,7 +187,7 @@ func TestNotImplementedHandler(t *testing.T) {
 		return
 	}
 	if errorValidate.Error() != "decoder type unknown not implemented" {
-		t.Errorf(fmt.Sprintf("Unexpected message: %s", errorValidate.Error()))
+		t.Errorf("unexpected message: %s", errorValidate.Error())
 		return
 	}
 }
