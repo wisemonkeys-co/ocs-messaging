@@ -218,6 +218,32 @@ func TestDecodeObjectWitAvroSchema(t *testing.T) {
 	}
 }
 
+func TestDecodeObjectWitAvroSchemaWithSchemaTypeNotDefined(t *testing.T) {
+	t.Log("TestDecodeObjectWitAvroSchema")
+	var complexObject struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	data := []byte{
+		0,          // magic byte
+		0, 0, 0, 5, // schema id
+		2, 12, 71, 111, 112, 104, 101, 114, // {"id":1,"name":"Gopher"}
+	}
+	errorValidate := schemaValidator.Decode(data, &complexObject)
+	if errorValidate != nil {
+		t.Error(errorValidate)
+		return
+	}
+	if complexObject.ID != 1 {
+		t.Errorf("unexpected id value (got %d)", complexObject.ID)
+		return
+	}
+	if complexObject.Name != "Gopher" {
+		t.Errorf("unexpected name value (got %s)", complexObject.Name)
+		return
+	}
+}
+
 func TestEncodeObjectWitAvroSchema(t *testing.T) {
 	t.Log("TestEncodeObjectWitAvroSchema")
 	var complexObject struct {
@@ -227,6 +253,29 @@ func TestEncodeObjectWitAvroSchema(t *testing.T) {
 	complexObject.ID = 9
 	complexObject.Name = "Akaxike"
 	payload, encodeError := schemaValidator.Encode(4, complexObject)
+	if encodeError != nil {
+		t.Error(encodeError)
+		return
+	}
+	if payload == nil {
+		t.Errorf("unexpected nil payload")
+		return
+	}
+	if string(payload[5:]) != string([]byte{18, 14, 65, 107, 97, 120, 105, 107, 101}) {
+		t.Errorf("unexpected array for payload value")
+		return
+	}
+}
+
+func TestEncodeObjectWitAvroSchemaWithSchemaTypeNotDefined(t *testing.T) {
+	t.Log("TestEncodeObjectWitAvroSchema")
+	var complexObject struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	complexObject.ID = 9
+	complexObject.Name = "Akaxike"
+	payload, encodeError := schemaValidator.Encode(5, complexObject)
 	if encodeError != nil {
 		t.Error(encodeError)
 		return
@@ -285,6 +334,10 @@ func TestMain(m *testing.M) {
 			schema = avroSchema
 			subject = "avro-object"
 			schemaType = "AVRO"
+		case "5":
+			id = 4
+			schema = avroSchema
+			subject = "avro-object-two"
 		default:
 			id = 999
 			schema = `{}`
@@ -295,7 +348,9 @@ func TestMain(m *testing.M) {
 		m["subject"] = subject
 		m["version"] = 1
 		m["id"] = id
-		m["schemaType"] = schemaType
+		if schemaType != "" {
+			m["schemaType"] = schemaType
+		}
 		m["schema"] = schema
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

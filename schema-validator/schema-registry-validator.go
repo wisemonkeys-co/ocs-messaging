@@ -59,7 +59,7 @@ func (sv *SchemaRegistryValidator) Decode(data []byte, v any) error {
 	if err != nil {
 		return err
 	}
-	schemaType := schema.SchemaType().String()
+	schemaType := getSchemaType(schema)
 	if schemaType == srclient.Avro.String() {
 		native, _, err := schema.Codec().NativeFromBinary(data[5:])
 		if err != nil {
@@ -93,7 +93,7 @@ func (sv *SchemaRegistryValidator) Encode(schemaID int, data any) (payload []byt
 		err = fmt.Errorf("error getting the schema with id '%d': %s", schemaID, err)
 		return
 	}
-	schemaType := schema.SchemaType().String()
+	schemaType := getSchemaType(schema)
 	if schemaType == srclient.Avro.String() {
 		value, _ := json.Marshal(data)
 		var native any
@@ -137,4 +137,11 @@ func (sv *SchemaRegistryValidator) buildPayloadBuffer(schemaId uint32, data []by
 	payloadWithSchema = append(payloadWithSchema, dataSchemaId...)
 	payloadWithSchema = append(payloadWithSchema, data...)
 	return payloadWithSchema
+}
+
+func getSchemaType(schema *srclient.Schema) string {
+	if schema.SchemaType() == nil {
+		return srclient.Avro.String()
+	}
+	return schema.SchemaType().String()
 }
