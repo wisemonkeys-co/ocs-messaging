@@ -16,6 +16,7 @@ var jsonSchemaTypeString string = `{"title":"String Schema","description":"Schem
 var jsonSchemaTypeNumber string = `{"title":"Number Schema","description":"Schema 2 test","type":"number","minimum": 3.14,"exclusiveMaximum": 3.15}`
 var jsonSchemaTypeObject string = `{"title":"Object Schema","type":"object","required":["foo"],"properties":{"foo":{"type":"string"},"bar":{"type":"number"}}}`
 var avroSchema string = `{"type":"record","name":"ComplexType","namespace":"com.foo.bar.sunda","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`
+var avroSchemaWithUnion string = `{"type":"record","name":"ComplexType","namespace":"com.foo.bar.sunda","fields":[{"name":"id","type":"int"},{"name":"name","type":["null","string"],"default":null}]}`
 var schemaValidator SchemaRegistryValidator
 
 func TestDecodeJsonObjectData(t *testing.T) {
@@ -219,7 +220,7 @@ func TestDecodeObjectWitAvroSchema(t *testing.T) {
 }
 
 func TestDecodeObjectWitAvroSchemaWithSchemaTypeNotDefined(t *testing.T) {
-	t.Log("TestDecodeObjectWitAvroSchema")
+	t.Log("TestDecodeObjectWitAvroSchemaWithSchemaTypeNotDefined")
 	var complexObject struct {
 		ID   int    `json:"id"`
 		Name string `json:"name"`
@@ -239,6 +240,32 @@ func TestDecodeObjectWitAvroSchemaWithSchemaTypeNotDefined(t *testing.T) {
 		return
 	}
 	if complexObject.Name != "Gopher" {
+		t.Errorf("unexpected name value (got %s)", complexObject.Name)
+		return
+	}
+}
+
+func TestDecodeObjectWitAvroSchemaWithUnion(t *testing.T) {
+	t.Log("TestDecodeObjectWitAvroSchemaWithUnion")
+	var complexObject struct {
+		ID   int                    `json:"id"`
+		Name map[string]interface{} `json:"name"`
+	}
+	data := []byte{
+		0,          // magic byte
+		0, 0, 0, 6, // schema id
+		18, 2, 14, 65, 107, 97, 120, 105, 107, 101, // {"id":9,"name":{"string":"Akaxike"}}
+	}
+	errorValidate := schemaValidator.Decode(data, &complexObject)
+	if errorValidate != nil {
+		t.Error(errorValidate)
+		return
+	}
+	if complexObject.ID != 9 {
+		t.Errorf("unexpected id value (got %d)", complexObject.ID)
+		return
+	}
+	if len(complexObject.Name) != 1 || complexObject.Name["string"] != "Akaxike" {
 		t.Errorf("unexpected name value (got %s)", complexObject.Name)
 		return
 	}
@@ -268,7 +295,7 @@ func TestEncodeObjectWitAvroSchema(t *testing.T) {
 }
 
 func TestEncodeObjectWitAvroSchemaWithSchemaTypeNotDefined(t *testing.T) {
-	t.Log("TestEncodeObjectWitAvroSchema")
+	t.Log("TestEncodeObjectWitAvroSchemaWithSchemaTypeNotDefined")
 	var complexObject struct {
 		ID   int    `json:"id"`
 		Name string `json:"name"`
@@ -286,6 +313,59 @@ func TestEncodeObjectWitAvroSchemaWithSchemaTypeNotDefined(t *testing.T) {
 	}
 	if string(payload[5:]) != string([]byte{18, 14, 65, 107, 97, 120, 105, 107, 101}) {
 		t.Errorf("unexpected array for payload value")
+		return
+	}
+}
+
+func TestEncodeObjectWitAvroSchemaWithUnion(t *testing.T) {
+	t.Log("TestEncodeObjectWitAvroSchemaWithUnion")
+	var complexObjectWithUnion struct {
+		ID   int                    `json:"id"`
+		Name map[string]interface{} `json:"name"`
+	}
+	complexObjectWithUnion.ID = 9
+	complexObjectWithUnion.Name = map[string]interface{}{
+		"string": "Akaxike",
+	}
+	payload, encodeError := schemaValidator.Encode(6, complexObjectWithUnion)
+	if encodeError != nil {
+		t.Error(encodeError)
+		return
+	}
+	if payload == nil {
+		t.Errorf("unexpected nil payload")
+		return
+	}
+	if string(payload[5:]) != string([]byte{18, 2, 14, 65, 107, 97, 120, 105, 107, 101}) {
+		t.Errorf("unexpected array for payload value")
+		return
+	}
+}
+
+func TestDecodeObjectWitAvroSchemaWithUnionCustomDeserialize(t *testing.T) {
+	t.Log("TestDecodeObjectWitAvroSchemaWithUnionCustomDeserialize")
+	schemaValidator.SetShouldAdaptAvroUnion(true)
+	defer schemaValidator.SetShouldAdaptAvroUnion(false)
+	var complexObject struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	data := []byte{
+		0,          // magic byte
+		0, 0, 0, 6, // schema id
+		18, 2, 14, 65, 107, 97, 120, 105, 107, 101, // {"id":9,"name":{"string":"Akaxike"}}
+	}
+	errorValidate := schemaValidator.Decode(data, &complexObject)
+	if errorValidate != nil {
+		t.Error(errorValidate)
+		return
+	}
+	if complexObject.ID != 9 {
+		t.Errorf("unexpected id value (got %d)", complexObject.ID)
+		return
+	}
+	if complexObject.Name != "Akaxike" {
+		t.Errorf("unexpected name value (got %s)", complexObject.Name)
 		return
 	}
 }
@@ -335,9 +415,13 @@ func TestMain(m *testing.M) {
 			subject = "avro-object"
 			schemaType = "AVRO"
 		case "5":
-			id = 4
+			id = 5
 			schema = avroSchema
 			subject = "avro-object-two"
+		case "6":
+			id = 6
+			schema = avroSchemaWithUnion
+			subject = "avro-object-with-union"
 		default:
 			id = 999
 			schema = `{}`

@@ -3,7 +3,9 @@ package schemavalidator
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/riferrei/srclient"
 )
@@ -14,10 +16,11 @@ import (
 //
 // * Data validation based on schemas (currently, only supports json-schema)
 //
-// * Data serialization and desserialization in the schema-registry pattern ([0] MagicByte, [1:5] Schema id, [6:] Payload)
+// * Data serialization and deserialization in the schema-registry pattern ([0] MagicByte, [1:5] Schema id, [6:] Payload)
 type SchemaRegistryValidator struct {
 	srClient                     *srclient.SchemaRegistryClient
 	schemaTypeExternalHandlerMap map[string]schemaTypeHandlerInterface
+	shouldAdaptAvroUnion         bool
 }
 
 // Init setup the instance
@@ -50,7 +53,7 @@ func (sv *SchemaRegistryValidator) setupSchemaTypeExternalHandlerMap() {
 // The v should be a pointer.
 //
 // Currently, only supports json-schema
-func (sv *SchemaRegistryValidator) Decode(data []byte, v any) error {
+func (sv *SchemaRegistryValidator) Decode(data []byte, v any) (err error) {
 	if len(data) < 6 {
 		return fmt.Errorf("slice capacity less than 6 (%d)", len(data))
 	}
@@ -61,11 +64,23 @@ func (sv *SchemaRegistryValidator) Decode(data []byte, v any) error {
 	}
 	schemaType := getSchemaType(schema)
 	if schemaType == srclient.Avro.String() {
-		native, _, err := schema.Codec().NativeFromBinary(data[5:])
+		schemaCodec := schema.Codec()
+		if schemaCodec == nil {
+			err = errors.New("could not get the avro codec to decode message")
+			return
+		}
+		native, _, err := schemaCodec.NativeFromBinary(data[5:])
 		if err != nil {
 			return err
 		}
-		value, err := schema.Codec().TextualFromNative(nil, native)
+		var value []byte
+		if sv.shouldAdaptAvroUnion {
+			var schemaMapStringInterface map[string]interface{}
+			json.Unmarshal([]byte(schema.Schema()), &schemaMapStringInterface)
+			value, err = handleAvroData(schemaMapStringInterface, native.(map[string]interface{}))
+		} else {
+			value, err = schemaCodec.TextualFromNative(nil, native)
+		}
 		if err != nil {
 			return err
 		}
@@ -97,12 +112,17 @@ func (sv *SchemaRegistryValidator) Encode(schemaID int, data any) (payload []byt
 	if schemaType == srclient.Avro.String() {
 		value, _ := json.Marshal(data)
 		var native any
-		native, _, err = schema.Codec().NativeFromTextual(value)
+		schemaCodec := schema.Codec()
+		if schemaCodec == nil {
+			err = errors.New("could not get the avro codec to encode message")
+			return
+		}
+		native, _, err = schemaCodec.NativeFromTextual(value)
 		if err != nil {
 			return
 		}
 		var valueBytes []byte
-		valueBytes, err = schema.Codec().BinaryFromNative(nil, native)
+		valueBytes, err = schemaCodec.BinaryFromNative(nil, native)
 		if err != nil {
 			return
 		}
@@ -139,9 +159,56 @@ func (sv *SchemaRegistryValidator) buildPayloadBuffer(schemaId uint32, data []by
 	return payloadWithSchema
 }
 
+func (sv *SchemaRegistryValidator) SetShouldAdaptAvroUnion(flag bool) {
+	sv.shouldAdaptAvroUnion = flag
+}
+
 func getSchemaType(schema *srclient.Schema) string {
 	if schema.SchemaType() == nil {
 		return srclient.Avro.String()
 	}
 	return schema.SchemaType().String()
+}
+
+func handleAvroData(schema, data map[string]interface{}) ([]byte, error) {
+	finalData := make(map[string]interface{})
+	// TODO check all the possible namespaces
+	populateFinalData(finalData, data, []string{schema["namespace"].(string)})
+	return json.Marshal(finalData)
+}
+
+func populateFinalData(finalData, data map[string]interface{}, namespaceList []string) interface{} {
+	for key, value := range data {
+		if value == nil {
+			continue
+		}
+		switch key {
+		// TODO missing types: bytes, enum, map, record, union
+		// source: https://github.com/linkedin/goavro
+		case "boolean", "float", "double", "long", "int", "string", "fixed":
+			return value
+		}
+		if _, ok := value.(map[string]interface{}); ok {
+			for _, namespace := range namespaceList {
+				if strings.Contains(key, namespace) {
+					return populateFinalData(map[string]interface{}{}, value.(map[string]interface{}), namespaceList)
+				}
+			}
+			finalData[key] = populateFinalData(map[string]interface{}{}, value.(map[string]interface{}), namespaceList)
+		} else if _, ok := value.([]interface{}); ok {
+			switch key {
+			case "array":
+				var resultArray []interface{}
+				for _, arrayValue := range value.([]interface{}) {
+					resultArray = append(resultArray, populateFinalData(map[string]interface{}{}, arrayValue.(map[string]interface{}), namespaceList))
+				}
+				return resultArray
+			default:
+				return value
+			}
+		} else {
+			finalData[key] = value
+		}
+	}
+	return finalData
 }
