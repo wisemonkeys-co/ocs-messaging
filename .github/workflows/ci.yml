@@ -1,8 +1,14 @@
 name: CI Stage
-on: [push]
+on:
+  pull_request:
+    branches: [main]
+    types: 
+      - closed
 env:
-  TAG: v0.0.4
+  TAG: v0.0.5
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
   build:
     name: CI
     runs-on: ubuntu-latest
@@ -12,37 +18,16 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Go version
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.21.x"
+          go-version: "1.24.x"
       - name: Cache Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-      # # Define stack cache
-      # - name: Cache stack images
-      #   id: cache-docker
-      #   uses: actions/cache@v3
-      #   env:
-      #     cache-name: cache-services
-      #   with:
-      #     path: |
-      #       ~/stack-images
-      #     key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/stack-docker-compose.yml') }}
-      # # Load stack images from cache
-      # - if: ${{ steps.cache-docker.outputs.cache-hit == 'true' }}
-      #   name: Import stack images
-      #   run: |
-      #     docker image load < ~/stack-images/zookeeper.tgz
-      #     docker image load < ~/stack-images/kafka.tgz
-      #     docker image load < ~/stack-images/schema-registry.tgz
-      - name: Build stack
-        run: docker-compose -f stack-docker-compose.yml up -d
-      - name: Run tests
-        run: go test ./...
       - name: Publish version
         shell: bash {0}
         run: |
@@ -53,13 +38,3 @@ jobs:
             git push origin $TAG;
             echo 'Version '"$TAG"' published'
           fi
-    # # Store stack images on cache
-    # - if: ${{ steps.cache-docker.outputs.cache-hit != 'true' }}
-    #   name: Export stack images
-    #   timeout-minutes: 6
-    #   run: |
-    #     mkdir ~/stack-images
-    #     cd ~/stack-images
-    #     docker save confluentinc/cp-zookeeper | gzip -9 > zookeeper.tgz
-    #     docker save confluentinc/cp-kafka | gzip -9 > kafka.tgz
-    #     docker save confluentinc/cp-schema-registry | gzip -9 > schema-registry.tgz
