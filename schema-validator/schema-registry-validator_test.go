@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 var jsonSchemaTypeString string = `{"title":"String Schema","description":"Schema 2 test","type":"string","pattern":"^[0-9a-fA-F]{24}$"}`
@@ -17,6 +18,7 @@ var jsonSchemaTypeNumber string = `{"title":"Number Schema","description":"Schem
 var jsonSchemaTypeObject string = `{"title":"Object Schema","type":"object","required":["foo"],"properties":{"foo":{"type":"string"},"bar":{"type":"number"}}}`
 var avroSchema string = `{"type":"record","name":"ComplexType","namespace":"com.foo.bar.sunda","fields":[{"name":"id","type":"int"},{"name":"name","type":"string"}]}`
 var avroSchemaWithUnion string = `{"type":"record","name":"ComplexType","namespace":"com.foo.bar.sunda","fields":[{"name":"id","type":"int"},{"name":"name","type":["null","string"],"default":null}]}`
+var avroSchemaWithUnionOnNeastedArray string = `{"type":"record","name":"billing","namespace":"event_streaming.foo_bar.client","fields":[{"name":"orderNumber","type":"int","doc":"Número do pedido interno."},{"name":"account","type":"string","doc":"Conta do usuário."},{"name":"termAcceptance","type":"boolean","doc":"Indica se o termo foi aceito."},{"name":"categoryFactor","type":"double","doc":"Fator de categoria (ex.: 10.0000000000)."},{"name":"products","type":{"type":"array","items":{"type":"record","name":"product_record","fields":[{"name":"productId","type":"string","doc":"Identificador do produto."},{"name":"originalMonetaryAmount","type":"double","doc":"Valor monetário original."},{"name":"promoCode","type":"boolean","doc":"Indica se o produto usou código promocional."},{"name":"movementDetails","type":["null",{"type":"array","items":{"type":"record","name":"movement_detail_record","fields":[{"name":"cardAccount","type":"string","doc":"Conta cartão associada à movimentação."},{"name":"value","type":"double","doc":"Valor de pontos ou montante associado à movimentação."},{"name":"events","type":["null",{"type":"array","items":{"type":"record","name":"movment_detail_event_record","fields":[{"name":"name","type":"string","doc":"Nome do evento"},{"name":"date","type":"string","doc":"Data do evento"}]}}],"doc":"Eventos de movment"},{"name":"tags","type":"array","items":{"type":"string","doc":"Tags de relacionamento da movimentacao"}}]}}],"doc":"Lista de detalhes de movimentações associadas ao produto.","default":null}]}}}]}`
 var schemaValidator SchemaRegistryValidator
 
 func TestDecodeJsonObjectData(t *testing.T) {
@@ -370,6 +372,114 @@ func TestDecodeObjectWitAvroSchemaWithUnionCustomDeserialize(t *testing.T) {
 	}
 }
 
+func TestDecodeObjectWitAvroSchemaWithNeastedArrayAndUnionCustomDeserialize(t *testing.T) {
+	t.Log("TestDecodeObjectWitAvroSchemaWithNeastedArrayAndUnionCustomDeserialize")
+	schemaValidator.SetShouldAdaptAvroUnion(true)
+	defer schemaValidator.SetShouldAdaptAvroUnion(false)
+	var complexObject struct {
+		OrderNumber    int     `json:"orderNumber"`
+		Account        string  `json:"account"`
+		TermAcceptance bool    `json:"termAcceptance"`
+		CategoryFactor float64 `json:"categoryFactor"`
+		Products       []struct {
+			ProductID              string  `json:"productId"`
+			OriginalMonetaryAmount float64 `json:"originalMonetaryAmount"`
+			PromoCode              bool    `json:"promoCode"`
+			MovementDetails        []struct {
+				CardAccount string  `json:"cardAccount"`
+				Value       float64 `json:"value"`
+				Events      []struct {
+					Name string    `json:"name"`
+					Date time.Time `json:"date"`
+				} `json:"events"`
+				Tags []string `json:"tags"`
+			} `json:"movementDetails"`
+		} `json:"products"`
+	}
+	jsonDataStr := `{
+		"orderNumber": 3,
+		"account": "5ed98af",
+		"termAcceptance": true,
+		"categoryFactor": 2.4,
+		"products": [
+			{
+				"productId": "7edab90",
+				"originalMonetaryAmount": 56.98,
+				"promoCode": false,
+				"movementDetails": {
+					"array": [
+						{
+							"cardAccount": "uhx-er36!90",
+							"value": 9.7,
+							"events": {
+								"array": [
+									{
+										"name": "created",
+										"date": "2025-11-22T00:00:00.000Z"
+									},
+									{
+										"name": "published",
+										"date": "2025-11-22T17:16:18.547Z"
+									}
+								]
+							}, 
+							"tags": ["business", "finance"]
+						}
+					]
+				}
+			}
+		]
+	}`
+	mapData := make(map[string]any)
+	err := json.Unmarshal([]byte(jsonDataStr), &mapData)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	jsonData, _ := schemaValidator.Encode(7, mapData)
+	errorValidate := schemaValidator.Decode(jsonData, &complexObject)
+	if errorValidate != nil {
+		t.Error(errorValidate)
+		return
+	}
+	if complexObject.Account != "5ed98af" {
+		t.Errorf("unexpect json value for \"account\" %s", complexObject.Account)
+		return
+	}
+	if len(complexObject.Products) != 1 {
+		t.Errorf("unexpect product length to be equal to 1, got %d", len(complexObject.Products))
+		return
+	}
+	if complexObject.Products[0].ProductID != "7edab90" {
+		t.Errorf("unexpect json value for \"products.productId\" %s", complexObject.Products[0].ProductID)
+		return
+	}
+	if len(complexObject.Products[0].MovementDetails) != 1 {
+		t.Errorf("unexpect length for \"products[0].movmentDetails\" %d", len(complexObject.Products[0].MovementDetails))
+		return
+	}
+	if complexObject.Products[0].MovementDetails[0].CardAccount != "uhx-er36!90" {
+		t.Errorf("unexpect json value for \"products[0].movmentDetails[0].cardAccount\" %s", complexObject.Products[0].MovementDetails[0].CardAccount)
+		return
+	}
+	if len(complexObject.Products[0].MovementDetails[0].Events) != 2 {
+		t.Errorf("unexpect length for \"products[0].movmentDetails[0].events\" %d", len(complexObject.Products[0].MovementDetails[0].Events))
+		return
+	}
+	if complexObject.Products[0].MovementDetails[0].Events[0].Name != "created" {
+		t.Errorf("unexpect json value for \"products[0].movmentDetails[0].events[0].name\" %s", complexObject.Products[0].MovementDetails[0].Events[0].Name)
+		return
+	}
+	if complexObject.Products[0].MovementDetails[0].Events[1].Name != "published" {
+		t.Errorf("unexpect json value for \"products[0].movmentDetails[0].events[1].name\" %s", complexObject.Products[0].MovementDetails[0].Events[1].Name)
+		return
+	}
+	if len(complexObject.Products[0].MovementDetails[0].Tags) != 2 {
+		t.Errorf("unexpect length for \"products[0].movmentDetails[0].tags\" %d", len(complexObject.Products[0].MovementDetails[0].Events))
+		return
+	}
+}
+
 func TestMain(m *testing.M) {
 	srKey := "O=='='"
 	srPass := "p455wºrd"
@@ -422,6 +532,10 @@ func TestMain(m *testing.M) {
 			id = 6
 			schema = avroSchemaWithUnion
 			subject = "avro-object-with-union"
+		case "7":
+			id = 7
+			schema = avroSchemaWithUnionOnNeastedArray
+			subject = "avro-object-with-union-on-neasted-array"
 		default:
 			id = 999
 			schema = `{}`

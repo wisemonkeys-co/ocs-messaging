@@ -187,6 +187,8 @@ func populateFinalData(finalData, data map[string]interface{}, namespaceList []s
 		// source: https://github.com/linkedin/goavro
 		case "boolean", "float", "double", "long", "int", "string", "fixed":
 			return value
+		case "array":
+			return handleArray(value.([]interface{}), namespaceList)
 		}
 		if _, ok := value.(map[string]interface{}); ok {
 			for _, namespace := range namespaceList {
@@ -196,19 +198,24 @@ func populateFinalData(finalData, data map[string]interface{}, namespaceList []s
 			}
 			finalData[key] = populateFinalData(map[string]interface{}{}, value.(map[string]interface{}), namespaceList)
 		} else if _, ok := value.([]interface{}); ok {
-			switch key {
-			case "array":
-				var resultArray []interface{}
-				for _, arrayValue := range value.([]interface{}) {
-					resultArray = append(resultArray, populateFinalData(map[string]interface{}{}, arrayValue.(map[string]interface{}), namespaceList))
-				}
-				return resultArray
-			default:
-				return value
-			}
+			finalData[key] = handleArray(value.([]interface{}), namespaceList)
 		} else {
 			finalData[key] = value
 		}
 	}
 	return finalData
+}
+
+func handleArray(array []interface{}, namespaceList []string) []interface{} {
+	var resultArray []interface{}
+	for _, arrayItem := range array {
+		if mapData, ok := arrayItem.(map[string]interface{}); ok {
+			resultArray = append(resultArray, populateFinalData(map[string]interface{}{}, mapData, namespaceList))
+		} else if neastedArrayData, ok := arrayItem.([]interface{}); ok {
+			resultArray = append(resultArray, handleArray(neastedArrayData, namespaceList))
+		} else {
+			resultArray = append(resultArray, arrayItem)
+		}
+	}
+	return resultArray
 }
