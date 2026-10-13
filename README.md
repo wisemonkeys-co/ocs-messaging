@@ -101,21 +101,25 @@ Com `security.protocol` `SASL_SSL` (ou `SASL_PLAINTEXT`), o mecanismo vem de `sa
 | --- | --- | --- |
 | `PLAIN` (padrão) | Confluent Cloud, Kafka externo dos clientes | `sasl.username` / `sasl.password` obrigatórios |
 | `SCRAM-SHA-256` / `SCRAM-SHA-512` | Amazon MSK (SCRAM) ou outro Kafka | `sasl.username` / `sasl.password` obrigatórios |
-| `AWS_MSK_IAM` | Amazon MSK com IAM (porta 9098) | dispensa usuário/senha; token assinado com a cadeia padrão de credenciais da AWS (EKS Pod Identity, IRSA, variáveis de ambiente, profile) |
+| `OAUTHBEARER` | Token fornecido por um provedor, escolhido em `KAFKA_OAUTHBEARER_PROVIDER` (obrigatória) | dispensa usuário/senha |
 
-No `AWS_MSK_IAM` a biblioteca configura `sasl.mechanism=OAUTHBEARER`, define o primeiro token na criação do producer/consumer e o renova numa goroutine antes de expirar (o token dura 15 minutos). A região de assinatura vem de `AWS_REGION`, `AWS_DEFAULT_REGION` ou do hostname dos brokers.
+| `KAFKA_OAUTHBEARER_PROVIDER` | Uso |
+| --- | --- |
+| `AWS_MSK_IAM` | Amazon MSK com IAM (porta 9098): token assinado com a cadeia padrão de credenciais da AWS (EKS Pod Identity, IRSA, variáveis de ambiente, profile) |
+
+No MSK com IAM (`OAUTHBEARER` + `AWS_MSK_IAM`) a biblioteca define o primeiro token na criação do producer/consumer e o renova numa goroutine antes de expirar (o token dura 15 minutos). A região de assinatura vem de `AWS_REGION`, `AWS_DEFAULT_REGION` ou do hostname dos brokers.
 
 ```go
 consumerConfig := map[string]interface{}{
   "bootstrap.servers": os.Getenv("KAFKA_BOOTSTRAP_SERVERS"),
   "security.protocol": os.Getenv("KAFKA_SECURITY_PROTOCOL"),
-  "sasl.username":     os.Getenv("KAFKA_USERNAME"), // ignorado com AWS_MSK_IAM
-  "sasl.password":     os.Getenv("KAFKA_PASSWORD"), // ignorado com AWS_MSK_IAM
+  "sasl.username":     os.Getenv("KAFKA_USERNAME"), // ignorado com OAUTHBEARER
+  "sasl.password":     os.Getenv("KAFKA_PASSWORD"), // ignorado com OAUTHBEARER
   "group.id":          "my-consumer-group-0",
 }
 ```
 
-Quando o mesmo processo conecta em dois clusters com mecanismos diferentes (ex.: Kafka externo do cliente com `PLAIN` e MSK com `AWS_MSK_IAM`), passe `sasl.mechanism` explicitamente em cada configuração para que a variável `KAFKA_SASL_MECHANISM` não valha para as duas.
+Quando o mesmo processo conecta em dois clusters com mecanismos diferentes (ex.: Kafka externo do cliente com `PLAIN` e MSK com `OAUTHBEARER`), passe `sasl.mechanism` explicitamente em cada configuração para que a variável `KAFKA_SASL_MECHANISM` não valha para as duas.
 
 #### Consumo de mensagem
 

@@ -37,6 +37,7 @@ func TestSaslMechanism(t *testing.T) {
 	testCases := []struct {
 		name          string
 		envMechanism  string
+		envProvider   string
 		config        map[string]interface{}
 		wantMechanism string
 		wantUsername  string
@@ -70,14 +71,34 @@ func TestSaslMechanism(t *testing.T) {
 			wantError: "missing required property \"sasl.username\"",
 		},
 		{
-			name:          "AWS_MSK_IAM from env var, empty credentials ignored",
-			envMechanism:  "AWS_MSK_IAM",
+			name:          "OAUTHBEARER from env var with AWS_MSK_IAM provider, empty credentials ignored",
+			envMechanism:  "OAUTHBEARER",
+			envProvider:   "AWS_MSK_IAM",
 			config:        saslConfig(map[string]interface{}{"sasl.username": "", "sasl.password": ""}),
 			wantMechanism: "OAUTHBEARER",
 		},
 		{
+			name:         "OAUTHBEARER requires a provider",
+			envMechanism: "OAUTHBEARER",
+			config:       saslConfig(nil),
+			wantError:    "invalid KAFKA_OAUTHBEARER_PROVIDER \"\"",
+		},
+		{
+			name:         "OAUTHBEARER with invalid provider",
+			envMechanism: "OAUTHBEARER",
+			envProvider:  "OIDC",
+			config:       saslConfig(nil),
+			wantError:    "invalid KAFKA_OAUTHBEARER_PROVIDER \"OIDC\"",
+		},
+		{
+			name:      "AWS_MSK_IAM is a provider, not a mechanism",
+			config:    saslConfig(map[string]interface{}{"sasl.mechanism": "AWS_MSK_IAM"}),
+			wantError: "invalid \"sasl.mechanism\" \"AWS_MSK_IAM\"",
+		},
+		{
 			name:          "config takes precedence over env var",
-			envMechanism:  "AWS_MSK_IAM",
+			envMechanism:  "OAUTHBEARER",
+			envProvider:   "AWS_MSK_IAM",
 			config:        saslConfig(map[string]interface{}{"sasl.mechanism": "PLAIN", "sasl.username": "key", "sasl.password": "secret"}),
 			wantMechanism: "PLAIN",
 			wantUsername:  "key",
@@ -89,7 +110,8 @@ func TestSaslMechanism(t *testing.T) {
 		},
 		{
 			name:         "no SASL properties without SASL_*",
-			envMechanism: "AWS_MSK_IAM",
+			envMechanism: "OAUTHBEARER",
+			envProvider:  "AWS_MSK_IAM",
 			config: map[string]interface{}{
 				"bootstrap.servers": "localhost:9092",
 				"group.id":          "test",
@@ -102,6 +124,7 @@ func TestSaslMechanism(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv(SaslMechanismEnvVar, tc.envMechanism)
+			t.Setenv(OAuthBearerProviderEnvVar, tc.envProvider)
 			kafkaConfigMap, err := buildConfigMap(tc.config)
 			if tc.wantError != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantError) {

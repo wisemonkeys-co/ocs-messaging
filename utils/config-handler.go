@@ -9,17 +9,26 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
-// Supported values for the "sasl.mechanism" config (or the KAFKA_SASL_MECHANISM env var)
+// Supported values for the "sasl.mechanism" config (or the KAFKA_SASL_MECHANISM env var): librdkafka mechanisms
 const (
 	SaslMechanismPlain       = "PLAIN"
 	SaslMechanismScramSha256 = "SCRAM-SHA-256"
 	SaslMechanismScramSha512 = "SCRAM-SHA-512"
-	// SaslMechanismAwsMskIam authenticates on Amazon MSK with IAM (OAUTHBEARER token signed with the default AWS credentials chain)
-	SaslMechanismAwsMskIam = "AWS_MSK_IAM"
+	// SaslMechanismOAuthBearer requires a token provider (KAFKA_OAUTHBEARER_PROVIDER)
+	SaslMechanismOAuthBearer = "OAUTHBEARER"
 )
 
 // SaslMechanismEnvVar is read when the "sasl.mechanism" config is not defined
 const SaslMechanismEnvVar = "KAFKA_SASL_MECHANISM"
+
+// Supported values for the KAFKA_OAUTHBEARER_PROVIDER env var: who provides the OAUTHBEARER token
+const (
+	// OAuthBearerProviderAwsMskIam authenticates on Amazon MSK with IAM (token signed with the default AWS credentials chain)
+	OAuthBearerProviderAwsMskIam = "AWS_MSK_IAM"
+)
+
+// OAuthBearerProviderEnvVar selects the token provider when the mechanism is OAUTHBEARER
+const OAuthBearerProviderEnvVar = "KAFKA_OAUTHBEARER_PROVIDER"
 
 var ProducerHandlerMap map[string]func(config map[string]interface{}, kafkaConfigMap *kafka.ConfigMap) error = map[string]func(config map[string]interface{}, kafkaConfigMap *kafka.ConfigMap) error{
 	"bootstrap.servers":  handleBootstrapServers,
@@ -86,11 +95,16 @@ func handleSaslMechanism(securityProtocol string, config map[string]interface{},
 			return fmt.Errorf("missing required property \"sasl.password\" (due to \"security.protocol\" as %s and \"sasl.mechanism\" as %s)", securityProtocol, mechanism)
 		}
 		(*kafkaConfigMap)["sasl.password"] = strContainer
-	case SaslMechanismAwsMskIam:
+	case SaslMechanismOAuthBearer:
 		// The token is provided by the application (see MskIamTokenRefresher); username and password are ignored
-		(*kafkaConfigMap)["sasl.mechanism"] = "OAUTHBEARER"
+		switch provider := os.Getenv(OAuthBearerProviderEnvVar); provider {
+		case OAuthBearerProviderAwsMskIam:
+			(*kafkaConfigMap)["sasl.mechanism"] = mechanism
+		default:
+			return fmt.Errorf("invalid %s %q for \"sasl.mechanism\" %s (valid values: %s)", OAuthBearerProviderEnvVar, provider, mechanism, OAuthBearerProviderAwsMskIam)
+		}
 	default:
-		return fmt.Errorf("invalid \"sasl.mechanism\" %q (valid values: %s, %s, %s, %s)", mechanism, SaslMechanismPlain, SaslMechanismScramSha256, SaslMechanismScramSha512, SaslMechanismAwsMskIam)
+		return fmt.Errorf("invalid \"sasl.mechanism\" %q (valid values: %s, %s, %s, %s)", mechanism, SaslMechanismPlain, SaslMechanismScramSha256, SaslMechanismScramSha512, SaslMechanismOAuthBearer)
 	}
 	return nil
 }
@@ -100,9 +114,9 @@ func handleSaslCredentials(config map[string]interface{}, kafkaConfigMap *kafka.
 	return nil
 }
 
-// UsesMskIam reports whether the built config authenticates with AWS_MSK_IAM
+// UsesMskIam reports whether the built config authenticates on Amazon MSK with IAM (OAUTHBEARER with the AWS_MSK_IAM provider)
 func UsesMskIam(kafkaConfigMap kafka.ConfigMap) bool {
-	return kafkaConfigMap["sasl.mechanism"] == "OAUTHBEARER"
+	return kafkaConfigMap["sasl.mechanism"] == SaslMechanismOAuthBearer && os.Getenv(OAuthBearerProviderEnvVar) == OAuthBearerProviderAwsMskIam
 }
 
 func handleAutoOffsetReset(config map[string]interface{}, kafkaConfigMap *kafka.ConfigMap) error {
