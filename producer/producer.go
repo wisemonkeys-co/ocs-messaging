@@ -23,6 +23,7 @@ type KafkaProducer struct {
 	logHandler         loghandler.LogHandler
 	asyncModeChan      chan kafka.Event
 	deliveryReportChan chan<- types.EventReport
+	tokenRefresher     *utils.MskIamTokenRefresher
 }
 
 func (kp *KafkaProducer) Init(config map[string]interface{}, schemavalidator schemavalidator.SchemaValidator, logsChannel chan<- types.LogEvent) error {
@@ -44,6 +45,18 @@ func (kp *KafkaProducer) Init(config map[string]interface{}, schemavalidator sch
 		return err
 	}
 	kp.logHandler.HandleLogs()
+	if utils.UsesMskIam(configMap) {
+		region, err := utils.MskIamRegion(configMap)
+		if err != nil {
+			return err
+		}
+		kp.tokenRefresher = &utils.MskIamTokenRefresher{}
+		err = kp.tokenRefresher.Start("producer", region, kp.kafkaProducer, kp.logHandler.SendCustomLog)
+		if err != nil {
+			kp.tokenRefresher = nil
+			return err
+		}
+	}
 	return nil
 }
 
@@ -117,6 +130,9 @@ func (kp *KafkaProducer) StopProducer() {
 	flushTimeout, _ = time.ParseDuration("3s")
 	kp.kafkaProducer.Flush(int(flushTimeout.Milliseconds()))
 	kp.kafkaProducer.Close()
+	if kp.tokenRefresher != nil {
+		kp.tokenRefresher.Stop()
+	}
 }
 
 func (kp *KafkaProducer) buildKafkaConfigMap(config map[string]interface{}) (kafka.ConfigMap, error) {
