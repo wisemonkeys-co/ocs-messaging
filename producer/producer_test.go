@@ -188,6 +188,10 @@ func TestSendMessageAsyncModeSuccess(t *testing.T) {
 			return
 		}
 	}
+	// Delivery reports are asynchronous: they may arrive after the consumer reads the messages
+	for deadline := time.Now().Add(timeout); len(deliveryReportChan) < 4 && time.Now().Before(deadline); {
+		time.Sleep(10 * time.Millisecond)
+	}
 	if len(deliveryReportChan) != 4 {
 		t.Errorf("invalid number of reports: %d", len(deliveryReportChan))
 		return
