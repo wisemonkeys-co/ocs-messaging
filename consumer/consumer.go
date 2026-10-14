@@ -19,6 +19,7 @@ type KafkaConsumer struct {
 	shutdownInProgress bool
 	logHandler         loghandler.LogHandler
 	safeShutdown       chan int
+	tokenRefresher     *utils.MskIamTokenRefresher
 }
 
 func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList []string, messageChannel chan<- types.SimpleMessage, logChannel chan<- types.LogEvent) error {
@@ -44,6 +45,18 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 	startConsumerError = kc.logHandler.HandleLogs()
 	if startConsumerError != nil {
 		return startConsumerError
+	}
+	if utils.UsesMskIam(consumerConfigMap) {
+		region, err := utils.MskIamRegion(consumerConfigMap)
+		if err != nil {
+			return err
+		}
+		kc.tokenRefresher = &utils.MskIamTokenRefresher{}
+		startConsumerError = kc.tokenRefresher.Start("consumer", region, kc.kafkaConsumer, kc.logHandler.SendCustomLog)
+		if startConsumerError != nil {
+			kc.tokenRefresher = nil
+			return startConsumerError
+		}
 	}
 	startConsumerError = kc.kafkaConsumer.SubscribeTopics(topicList, nil)
 	if startConsumerError != nil {
@@ -120,6 +133,9 @@ func (kc *KafkaConsumer) StopConsumer() {
 		}
 	}
 	kc.kafkaConsumer = nil
+	if kc.tokenRefresher != nil {
+		kc.tokenRefresher.Stop()
+	}
 }
 
 func (kc *KafkaConsumer) buildKafkaConfigMap(config map[string]interface{}) (kafka.ConfigMap, error) {
