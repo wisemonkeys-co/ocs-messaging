@@ -25,4 +25,4 @@ jobs:
       - name: Build stack
         run: docker compose -f stack-docker-compose.yml up -d
       - name: Run tests
-        run: go test ./... -p 1
+        run: go test ./... -p 1 -timeout 40s

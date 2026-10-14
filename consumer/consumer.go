@@ -99,6 +99,9 @@ func (kc *KafkaConsumer) StartConsumer(config map[string]interface{}, topicList 
 }
 
 func (kc *KafkaConsumer) StopConsumer() {
+	if kc.kafkaConsumer == nil || kc.shutdownInProgress {
+		return
+	}
 	kc.shutdownInProgress = true
 	<-kc.safeShutdown
 	kc.logHandler.SendCustomLog(types.LogEvent{
@@ -108,6 +111,27 @@ func (kc *KafkaConsumer) StopConsumer() {
 		Message:      "Trying to close consumer",
 	})
 	kc.kafkaConsumer.Close()
+	if len(kc.messageChannel) > 0 {
+		isWaitingChannelDrain := true
+		timeout := time.NewTimer(readTimeout)
+		for len(kc.messageChannel) > 0 && isWaitingChannelDrain {
+			interval := time.NewTimer(time.Millisecond * 100)
+			select {
+			case <-interval.C:
+			case <-timeout.C:
+				isWaitingChannelDrain = false
+				interval.Stop()
+			}
+		}
+		if !timeout.Stop() {
+			kc.logHandler.SendCustomLog(types.LogEvent{
+				InstanceName: "consumer",
+				Tag:          "FETCH",
+				Type:         "Warn",
+				Message:      "Could not ensure that the channel was drained",
+			})
+		}
+	}
 	kc.kafkaConsumer = nil
 	if kc.tokenRefresher != nil {
 		kc.tokenRefresher.Stop()
